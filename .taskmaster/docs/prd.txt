@@ -1,0 +1,895 @@
+<context>
+
+# **Product Requirements Document: Waffle**
+
+## **Overview**
+
+Waffle is a mobile application designed to combat the loneliness that arises from long-distance friendships. Our core mission is to help people nurture and maintain their most important relationships.
+
+The product solves this by replacing low-context text messages and generic social media with a dedicated space for meaningful, asynchronous video conversations. For our target users—the **"Post-College Tribe"** navigating new cities and careers—Waffle provides a simple, structured ritual: a weekly check-in where they can share genuine life updates. By creating a frictionless experience and leveraging AI to deepen conversations, Waffle makes it easy to feel close to the people who matter most, no matter the distance.
+
+**For Phase 1 (MVP), all chats are strictly 1-to-1.** Group chat functionality is a consideration for a future phase and should not influence the initial data model or security rules.
+
+**On expiry, the** video **document in Firestore is not deleted. A new boolean field,** isExpired: true**, is set by the daily Cloud Function. This action also resets the** streakCount **in the parent** chat **document to 0.** In the UI, this expired video is rendered as blurred, desaturated, and unplayable, with an icon indicating the streak was broken.
+
+## **Core Features**
+
+Below are the primary features that define the Waffle experience. (Branding in **bold**).
+
+| **Feature Name**                     | **What it does**                                             | **Why it's important (User Benefit)**                        | **How it works at a high level**                             |
+|--------------------------------------|--------------------------------------------------------------|--------------------------------------------------------------|--------------------------------------------------------------|
+| **1. The Chat Thread (UI: "Stack")** | The main conversation screen. The top 80% is a dual-purpose area, acting as the video **recorder** when a user creates a new video and the video **player** when they watch one. The bottom 20% is a visual timeline of all previous videos, represented by **animated GIF thumbnails**. | Provides context and a shared history for the friendship, making the conversation feel like a continuous story rather than isolated messages. The dual-purpose view is fluid and intuitive. | The `chats/[chatId].tsx` screen will manage the state for playing a selected video or recording a new one. The user taps a prominent, stationary 'Record' button (or a dedicated 'add' space in the timeline) to switch the view from player to recorder mode. A horizontal `FlatList` at the bottom will render GIF thumbnails for each video document in the `videos` sub-collection. |
+| **2. Video Creation (UI: "Pour")**   | A frictionless, full-screen video recording experience with a 5-minute limit and a visible countdown timer. | Removes the technical frustrations of MMS/iMessage (slow uploads, restrictive limits, storage issues), encouraging longer, more thoughtful updates. | Launched from within a chat thread, the `camera.tsx` modal provides a simple interface. On completion, the video is uploaded to Firebase Storage, and a reference is created in the `videos` sub-collection in Firestore. |
+| **3. Smart Reminders & Streaks**     | The app sends intelligent push notifications to encourage weekly replies and visually tracks the "conversation streak". A video expires after 7 days if un-replied to. | Turns keeping in touch into a fun, low-pressure ritual. It provides a gentle nudge to prioritize key relationships, combating the "out of sight, out of mind" drift.<br><br>A push notification will be sent 24 hours before expiration. If a video expires, it will appear blurred/desaturated in the timeline with a 'Streak broken 💔' icon, prompting users to start a new one. | A Firebase Cloud Function runs daily to check video timestamps. If a video is nearing expiry, it triggers a push notification via FCM. Streaks are calculated and stored in the `chats` document. It is action-based to encourage engagement. "A streak is incremented by +1 for every valid reply submitted within the 168-hour (7-day) reply window. The count increases upon the successful upload of the reply video. For MVP, there is no concept of 'pausing' a streak. |
+| **4. RAG: Reply Assist**             | An AI-generated overlay showing key topics from a friend's video while the user is recording their reply. | Helps the user remember all the points they wanted to address, leading to more thoughtful and responsive replies that make their friend feel heard. | When the reply camera is opened, an AI function uses the transcript of the last video to generate 3-5 keywords/phrases and displays them unobtrusively on screen through a tranparent overlay. |
+| **5. RAG: Conversation Starters**    | An AI-powered feature to help users when they feel they have "nothing to share". | Breaks through the creative block of sharing, ensuring users can always find something meaningful to talk about, thus reducing the barrier to connection. | A button in the recording view ("Need ideas?") calls a RAG function. The AI uses a knowledge base of "post-college life" prompts, personalized with themes from the user's past videos to generate suggestions. UI will be a 'Need Ideas?' button that opens a small transparent overaly modal with suggestions |
+| **6. RAG: Relationship Insights**    | A periodic, AI-generated summary of shared themes or goals that have emerged in the conversation over time. | Deepens the friendship by highlighting shared journeys and creating moments of serendipitous connection and support. | A scheduled backend job analyzes the last few months of transcripts in a chat, prompts an LLM to find recurring themes, and saves this insight to be displayed in the app through an overlay over the video recorder. |
+| **7. Profile & Settings**            | A standard account page for managing profile information, notifications, and storage. | Provides users with necessary control over their account and experience. | A static screen (`settings.tsx`) allowing users to edit their name, profile picture, and notification preferences. It will also show basic data usage. |
+## **User Experience**
+
+### User Persona
+
+* **Name:** Alex, 25
+* **Role:** Software Engineer
+* **Background:** Graduated from college a few years ago. Most of their close friends now live in different states.
+* **Goals:** Stay genuinely connected to their 3-4 closest friends.
+* **Frustrations:** Group chats are impersonal. Forgets to follow up on important things. Sometimes feels like their day-to-day life isn't "interesting" enough to share.
+### Key User Flow (MVP)
+
+1. **Onboarding:** Alex signs up.
+2. **Invite:** Alex navigates to the `invite.tsx` tab and sends a unique link to their friend, Sarah.
+3. **Start a Chat:** Once Sarah accepts, a new chat appears on Alex's home screen (UI: **"Waffles"** list).
+4. **First Video:** Alex opens the chat (**"Stack"**), taps record to open the camera (**"Pour"**), and records a video.
+5. **Viewing & Replying:** Sarah receives a notification, watches the video, and records her reply. The cycle continues.
+
+### User Interface
+#### **1. Visual Design Direction & Brand Identity**
+
+* **Core Principles:** Warm, Tactile, Whimsical, Clean. The app should feel like a cozy café where you meet friends, not a sterile tech product.
+* **Color Palette:**
+  * **Background:** `Creamy White: #FAF7F2`
+  * **Primary Action / Brand Color:** `Waffle Yellow: #FDB833`
+  * **Accent / Secondary Color:** `Burnt Orange: #E57345`
+  * **Text & Icons:** `Dark Charcoal: #3A3A3A`
+* **Typography:**
+  * **Headers:** A friendly, bold sans-serif font (e.g., **Poppins**, **Nunito**).
+  * **Body & UI Text:** A highly legible, clean sans-serif (e.g., **Inter**, **Lato**).
+* **Imagery & Illustration:** High-quality, waffle-themed illustrations will be used for onboarding, empty states, and loading indicators to enhance the brand's personality.
+* **While a full accessibility audit is a post-MVP task, Phase 1 development must adhere to two core principles:**
+  * **Contrast:** All text on colored backgrounds must meet a minimum WCAG AA contrast ratio of 4.5:1.
+  * **Tap Targets:** All interactive elements (buttons, icons, list items) must have a minimum tap target size of 44x44 points."
+
+#### **2. Screen-by-Screen Breakdown**
+##### **Screen: Onboarding Flow**
+
+* **Layout:** A three-screen horizontal `Swiper` or `Pager` component. Each screen view is vertically centered.
+* **Components:**
+  * `Illustration`: A large, high-quality vector illustration unique to each screen.
+  * `Title`: A bold headline using the Header font.
+  * `Description`: 2-3 lines of body text explaining the value proposition.
+  * `PrimaryButton`: A main call-to-action button.
+* **Styling & Theming:**
+  * The background will be `Creamy White`.
+  * The `PrimaryButton` will be solid `Waffle Yellow` with `Dark Charcoal` text to ensure contrast and readability.
+* **Interaction & State:** The user swipes left/right to navigate. The final screen's button will say "Let's Get Started" and navigate into the main app sign in.
+* On sign in, the Sign Up Auth Page should have a notice that by using the service, users agree to the terms and conditions. 
+##### **Screen: Chats List (UI: "Waffles")**
+
+* **Layout:** A vertical `FlatList` component to render the list of chats.
+* **Components:**
+  * `ChatListItem`: The main component for each row in the list. It contains an Avatar, a Title Block, and a Status Indicator.
+* **Styling & Theming:**
+  * The overall screen background will be `Creamy White`.
+  * Each `ChatListItem` will be styled as a distinct card with a subtle border or drop shadow to lift it off the background.
+  * `Avatar`: If no user image, the circular background should be `Burnt Orange` or `Waffle Yellow`.
+  * `Title`: Use the Header font (e.g., Poppins Bold) with `Dark Charcoal` color.
+* **Interaction & State:**
+  * Tapping a `ChatListItem` navigates to the `chats/[chatId]` screen.
+  * An unread chat will be indicated by a small, solid `Waffle Yellow` dot to the left of the `TitleBlock`.
+##### **Screen: Chat Thread / Player (UI: "Stack")**
+
+* **Layout:** A two-part vertical layout: 80% for the Player/Recorder, 20% for the Timeline.
+* **Components:**
+  * `PlayerView`: A full-width video component with overlayed controls.
+  * `Timeline`: A horizontal `FlatList` to display video thumbnails.
+  * `TimelineItem`: A `Pressable` card within the `Timeline`.
+* **Styling & Theming:**
+  * The `PlayerView`'s interactive controls (e.g., playback speed button, slider thumb) should use the `Waffle Yellow` to stand out.
+  * `TimelineItem` cards will have rounded corners.
+* **Interaction & State:**
+  * The currently playing `TimelineItem` must have a distinct active state: a 2px solid `Waffle Yellow` border.
+* **MVP Scope:** For the MVP, `TimelineItem` thumbnails can be static images. Generating animated GIFs is a Phase 2 enhancement.
+##### **Screen: Video Recorder (UI: "Pour")**
+
+* **Layout:** A full-screen view with the live camera feed as the background.
+* **Components:**
+  * `RecordButton`: A large, circular `Pressable` action button.
+  * `TimelinePreview`: The `Timeline` component is reused here to provide conversation context.
+  * `RAG - Reply Assist Card`: An overlay card for the AI-generated reply prompts.
+* **Styling & Theming:**
+  * The `RecordButton` will be solid `Waffle Yellow` with a subtle press-state animation (e.g., scales down to 0.95 on press).
+  * The `Reply Assist Card` will have a semi-transparent dark background (`rgba(0,0,0,0.4)`) with white text to ensure readability over the dynamic camera feed.
+* **Interaction & State:** Tapping the record button begins recording and visually changes the button's state (e.g., the inner circle becomes a square).
+##### **Screen: Invite Friends**
+
+* **Layout:** A vertical `ScrollView` to accommodate all content.
+* **Components:**
+  * `ActionGrid`: A row of `Pressable` icons + labels for primary share actions.
+  * `PermissionCTA`: A card with a title, description, and primary button to prime for permissions requests.
+* **Styling & Theming:**
+  * All primary action buttons on this screen ("Add From Contacts," "Invite") will be solid `Waffle Yellow` with `Dark Charcoal` text.
+* **MVP Scope:** The initial version of this screen can be simplified to just the `ActionGrid` with "Share Link" and "Copy Link" functionality to ensure the core MVP is achievable. Contact list integration is a Phase 2 feature.
+##### **Screen: Settings**
+
+* **Layout:** A `SectionList` to group related settings items.
+* **Components:**
+  * `ProfileHeader`: A `Pressable` view at the top of the list.
+  * `SettingsListItem`: The row component for each setting.
+* **Styling & Theming:**
+  * The `ProfileHeader` card can have a `Creamy White` background to stand out if the main `SectionList` background is a slightly darker shade, or vice-versa.
+  * The colored, rounded-square backgrounds for the icons in each `SettingsListItem` should use the `Waffle Yellow` and `Burnt Orange` from our palette.
+  * All titles will use the Header font.
+
+##### Component: Video Recorder. 
+Video recording will be locked to portrait mode and will default to the front-facing camera. The aspect ratio will be full-screen (e.g., ~19.5:9). The post-compression video should target a 720p-equivalent quality to balance clarity and file size.
+
+##### **Component: RAG - Overlay**
+
+This component is the UI for core features **4, 5, 6** 
+
+###### **User Goal**
+
+To provide the user with AI-generated talking points from their friend's last video **without** forcing them to look away from the camera. This enables a more natural recording experience, as the user can glance at the prompts in their peripheral vision while maintaining eye contact with the lens.
+
+###### **Layout & Positioning**
+
+* **Container:** The component is a `View` rendered as an overlay on top of the live camera feed in `camera.tsx`.
+* **Positioning:** It is anchored to the top of the screen, just below the main header (the part containing the back arrow and friend's name).
+* **Spacing:** It should have horizontal margin (e.g., 16px) so it doesn't touch the screen edges, giving it a "floating" appearance.
+* **Size:** The height must be constrained to occupy only the top 15-20% of the viewport. This is crucial to keep the user's face, typically in the center of the screen, clear and unobstructed.
+###### **Styling & Theming**
+* **Container Style:** A card with moderately rounded corners (e.g., `borderRadius: 16px`).
+* **Background:** To ensure readability against any possible camera background, a semi-transparent dark color is required.
+  * **Implementation:** Use our `Dark Charcoal` color with an opacity. A good starting point is `rgba(58, 58, 58, 0.7)`.
+* **Content Typography:**
+  * **Title:** A small, all-caps, bold title like **"REPLYING TO:"** using a subtle color, perhaps our `Waffle Yellow` at 80% opacity, to gently brand the feature.
+  * **Body Text:** The AI-generated keywords/phrases. The text color must be a light, high-contrast color like pure white or a very light off-white from our palette. The font size should be easily glanceable (e.g., 16pt) but not distracting.
+  * **Content Format:** The prompts should be presented as a simple list, perhaps using a disc "•" or dash "-" character for each new point to improve scannability.
+###### **Interaction & Animation**
+
+The overlay should feel fluid and unobtrusive, never trapping the user.
+
+* **Appearance Animation:** When the user begins recording their reply, the overlay should not just appear abruptly. It should animate in smoothly, for example, by sliding down from the top of the screen while fading in over ~300ms. (`animation: slideDown + fadeIn`).
+* **Dismissal Interaction:** The user must have full control to hide the overlay.
+  1. **Primary:** A simple **tap anywhere on the card** should trigger its dismissal animation.
+  2. **Secondary:** A **swipe-up gesture** on the card should also dismiss it.
+* **Dismissal Animation:** The card should animate out gracefully, mirroring its appearance animation (sliding up and fading out).
+* **Re-Summoning:** After being dismissed, a small, subtle icon (like a lightbulb 💡 or sparkle ✨) could remain in the top corner. Tapping this icon would bring the Reply Assist overlay back into view with the same appearance animation. This prevents the user from feeling like they've permanently lost the suggestions.
+
+</context>
+<PRD>
+
+## **Technical Architecture**
+
+### System Components
+
+* **Frontend:** React Native with Expo (File-based routing via `expo-router`).
+* **Backend:** Google Firebase (Authentication, Firestore, Storage, Cloud Functions).
+* **RAG Services:** Firebase Cloud Functions orchestrating calls to a transcription service, OpenAI API, and a vector database.
+### Frontend: Navigation
+
+We will proceed with your proposed file-based routing structure. It is clean, conventional, and prioritizes the core user flow, which is ideal for the MVP.
+
+| **Real purpose** | **File/route name (plain)** | **Display title (branded)** | 
+|---|---|---|
+| Chats list | `app/(tabs)/chats/index.tsx` | **Waffles** | 
+| Chat thread | `app/(tabs)/chats/[chatId].tsx` | **Stack** | 
+| Camera modal | `app/(tabs)/chats/camera.tsx` | **Pour** | 
+### Backend: Firebase Configuration
+
+* **Services:** Authentication (Apple, SMS), Firestore, Storage, Cloud Functions.
+* **Data Models (Firestore)**
+  * `users/{userId}`
+    * `displayName: string`
+    * `photoURL: string`
+    * `phoneNumber: string`
+  * `chats/{chatId}`
+    * `members: array<userId>`
+    * `lastUpdated: timestamp`
+    * `streakCount: number`
+  * `chats/{chatId}/videos/{videoId}`
+    * `senderId: string` (references a userId)
+    * `storagePath: string` (e.g., `videos/{chatId}/{videoId}.mp4`)
+    * `createdAt: timestamp`
+    * `duration: number`
+    * `transcript: string` (populated by backend function)
+  * `invites/{inviteId}` *(For Phase 2 Enhanced Invite Flow)*
+    * `senderId: string`
+    * `recipientIdentifier: string` (e.g., phone number)
+    * `initialVideoPath: string`
+    * `status: 'pending' | 'completed'`
+* **Client-Side Video Compression**
+  * To manage Firebase Storage/Cloud Function costs and improve upload performance, **client-side video compression is a requirement for the MVP.** Large, raw video files from modern smartphones are not viable.
+    * **Implementation:** Before uploading to Firebase Storage, the application must process the video to reduce its file size.
+    * **Library to Research:** For React Native with Expo, a promising library is **`expo-video-compressor`**. It provides a simple API to compress a video URI to a specified bitrate or quality level.
+    * **Recommendation:** Start with a preset that balances quality and size, such as `MediumQuality`, and test the output. The goal is a significant size reduction (e.g., 50-70%) while keeping the video clear enough for personal communication.
+    * The primary KPI for compression is an upload time of < 15 seconds on a standard WiFi/5G connection. A secondary goal is a target file size of approximately 10-15 MB per minute of video. The developer should configure the expo-video-compressor library to meet these targets.
+#### **Firebase Security Rules**
+
+**Note: Chat documents cannot be created directly by the client application.** They will be created exclusively via a callable Firebase Cloud Function (createChat). The function will take a recipientId as an argument, verify both users exist, and then securely create the chats document with the correct members array. This prevents malicious actors from creating arbitrary chats."
+
+* **Firestore:** JavaScript
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    // Members of a chat can read/write to it and its sub-collections
+    match /chats/{chatId} {
+      allow read, write: if request.auth.uid in resource.data.members;
+
+      match /videos/{videoId} {
+        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+      }
+    }
+    // Rules for the Phase 2 Invites collection
+    match /invites/{inviteId} {
+        allow create: if request.auth.uid == request.resource.data.senderId;
+        // Cloud functions will handle read/delete operations
+        allow read, delete: if false; 
+    }
+  }
+}
+```
+
+* **Storage:** JavaScript
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // A user can only write a video to a chat they are a part of.
+    // The videoId in the path should match the document ID they are creating in Firestore.
+    match /videos/{chatId}/{videoId} {
+      allow write: if request.auth != null && exists(/databases/(default)/documents/chats/$(chatId)) && request.auth.uid in get(/databases/(default)/documents/chats/$(chatId)).data.members;
+    }
+
+    // Reading is best handled via secure download URLs generated by a Cloud Function 
+    // to ensure only chat members can view videos. This prevents unauthorized access.
+    // For simplicity, a stricter read rule than before:
+    match /videos/{chatId}/{videoId} {
+        allow read: if request.auth != null && exists(/databases/(default)/documents/chats/$(chatId)) && request.auth.uid in get(/databases/(default)/documents/chats/$(chatId)).data.members;
+    }
+  }
+}
+```
+
+## **Development Roadmap**
+
+### Phase 1: MVP
+
+* **User Authentication:** Full signup/login flow.
+* **Core App Navigation:** Implement tab and stack navigation as defined.
+* **Screens:**
+  * Chats List Screen (`chats/index.tsx`)
+  * Chat Thread Screen (`chats/[chatId].tsx`) with video player and placeholder timeline.
+  * Camera Modal (`chats/camera.tsx`)
+  * Simple Invite Screen (`invite.tsx` with share link functionality).
+  * Settings Screen (`settings.tsx`).
+* **Feature Implementation:**
+  * Full video recording and upload flow.
+  * Basic video playback in the Chat Thread.
+### Phase 2: Future Enhancements - Core Features & RAG Pipeline
+
+* **High Priority - Enhanced Invite Flow:** Implement the "record a video to invite" feature. This involves a temporary `invites` collection and a Cloud Function to handle new user signups from an invite.
+* **Feature Polish:**
+  * Implement the dynamic, animated GIF Timeline in the Chat Thread.
+  * Build backend logic for Smart Reminders & Streaks.
+  * Integrate push notifications.
+* **RAG Backend & Implementation:**
+  * Set up the full backend pipeline (transcription, embedding).
+  * Implement RAG Features in order: **1. Reply Assist**, **2. Conversation Starters**, **3. Relationship Insights**.
+## Logical Dependency Chain
+[Define the logical order of development:
+- Which features need to be built first (foundation)
+- Getting as quickly as possible to something usable/visible front end that works
+- Properly pacing and scoping each feature so it is atomic but can also be built upon and improved as development approaches]
+
+This defines the required order of operations to get to a usable product as quickly as possible.
+
+1. **Foundation (Must be built first):**
+   * Set up all Firebase services (Auth, Firestore, Storage, Functions) with the correct security rules.
+   * Implement the user authentication flow (Sign up, Login). The app is unusable without this.
+2. **Getting to a Visible Front End:**
+   * Build the static UI for all main screens (`(tabs)` layout, `chats/index`, `chats/[chatId]`, `settings`, `invite`).
+   * Implement the navigation between these screens using `expo-router`. At this stage, the app is "clickable" but not functional.
+3. **Making it Real (The Core Loop):**
+   * **Video Recording:** Implement the camera modal (`chats/camera.tsx`) to record a video.
+   * **Compression & Upload:** Implement the client-side video compression step, then upload the compressed file to Firebase Storage.
+   * **Data Persistence:** Upon successful upload, create the corresponding document in the `chats/{chatId}/videos` sub-collection in Firestore.
+   * **Data Fetching & Playback:** Fetch the list of chats for the home screen. When a chat is opened, fetch the videos from the sub-collection and enable playback. **This completes the core record -> upload -> view -> reply loop.**
+4. **The Two Invite Flows (MVP vs. Phase 2):**
+   * **MVP Invite Flow (Dependency for initial user growth):** This is the simplest path. It depends only on having a unique identifier for a user (like `userId`).
+     * *Process:* User A taps "Invite" -> A unique deep link is generated (`waffleapp.com/invite?by=userA_id`) -> User A shares this link manually -> User B taps the link, downloads the app, and signs up. A new, empty chat must be created manually between User A and User B after onboarding.
+   * **Phase 2 Enhanced Invite Flow (Depends on a stable core loop & backend functions):** This is a more complex, feature-rich flow that makes onboarding magical.
+     * *Process:* User A taps "Invite" -> The app prompts them to record a personal video -> The video is uploaded to a temporary path and its info is stored in the `/invites` collection -> A unique link tied to this invite record is generated -> When User B signs up using this link, a Cloud Function triggers. This function reads the `/invites` record, creates a new chat between A and B, moves the video into that chat's `videos` sub-collection, and deletes the temporary invite. User B's first experience is a chat with a video waiting for them.
+     
+
+5. **Layering on Intelligence (RAG):**
+   * This is dependent on having video data to work with.
+   * First, build the backend pipeline (the Cloud Function that triggers on video upload to transcribe it).
+   * Then, build the RAG features one by one, starting with the simplest (Reply Assist) to prove the pipeline works end-to-end.
+
+## Risks and Mitigations  
+| **Risk**                 | **Description**                                              | **Mitigation Strategy**                                      |
+|--------------------------|--------------------------------------------------------------|--------------------------------------------------------------|
+| **Technical Challenge**  | The RAG pipeline involves multiple services (Storage, Functions, Transcription API, OpenAI) and can be complex to debug. Generating animated GIF thumbnails efficiently on the client side can also be tricky. | **RAG:** Build the simplest RAG feature (Reply Assist) first to validate the entire data flow. Log extensively in Cloud Functions. <br> **GIFs:** Research established libraries like `ffmpeg-kit-react-native`. If it proves too complex for the MVP, use static video thumbnails as a fallback and move GIF generation to Phase 2. |
+| **Figuring out the MVP** | The rapid timeline for the initial clone creates immense pressure and a high risk of scope creep. | **Mitigation:** This PRD is the primary mitigation. We have a clearly defined Phase 1 scope. The rule is: if it's not listed under "Phase 1: MVP," it does not get built in the first 48 hours. No exceptions. |
+| **Resource Constraints** | Time is the primary constraint. Unchecked Firebase costs (from large video files) are a secondary financial constraint. | **Time:** Leverage AI development tools, use a component library (React Native Paper), and strictly follow the Logical Dependency Chain to avoid wasted work. <br>**Cost:** Implement client-side video compression from day one (as added to the architecture). Monitor Firebase usage daily. |
+
+## Appendix  
+
+### Technical Research
+
+<Expo-Research>
+
+#### **High-Performance Media Lists:** For a feed-style screen that displays a list of video items (e.g., in a FlatList), what are the most critical patterns (React.memo, useCallback, keyExtractor) and common pitfalls for ensuring smooth scrolling and preventing high memory usage, especially as the list grows? How does this strategy change if the list items need to support animations or video playback?
+
+#### Robust Video Capture-to-Cloud Pipeline: Expo Best Practices
+
+Based on the Expo codebase, here's the definitive approach for building a resilient video recording pipeline:
+
+##### Core Architecture
+
+**Video Recording Foundation**: Use `expo-camera`'s `CameraView` component with the `recordAsync()` method as your primary recording interface.  
+
+**Recording Configuration**: Configure recording options through `CameraRecordingOptions` to control quality, duration, and file size limits.
+
+##### Permission Management
+
+**Camera Permissions**: Implement robust permission handling using the built-in permission system with `getCameraPermissionsAsync()` and `requestCameraPermissionsAsync()`. 
+
+**Microphone Permissions**: For video with audio, also handle microphone permissions using `getMicrophonePermissionsAsync()` and `requestMicrophonePermissionsAsync()`. 
+
+**Permission Error Handling**: Handle permission denial gracefully by checking the returned `PermissionResponse` status and providing appropriate user feedback. 
+
+##### Quality and Compression Controls
+
+**Video Quality Settings**: Control recording quality through the `videoQuality` prop on `CameraView`, supporting values like `'2160p'`, `'1080p'`, `'720p'`, `'480p'`, and `'4:3'`. 
+
+**Bitrate Control**: Fine-tune compression using the `videoBitrate` prop to specify bits per second.
+
+**File Size Limits**: Prevent excessive file sizes by setting `maxFileSize` in recording options. 
+
+**Duration Limits**: Control recording length with `maxDuration` to prevent runaway recordings. 
+
+##### Error Handling and Resilience
+
+**Recording Error Management**: Wrap `recordAsync()` calls in try-catch blocks since it returns a Promise that can reject on various failure conditions. 
+
+**Camera Ready State**: Ensure the camera is ready before starting recording by implementing the `onCameraReady` callback. 
+
+**Mount Error Handling**: Handle camera initialization failures through the `onMountError` prop. 
+
+##### File Management and Upload Preparation
+
+**File System Operations**: Use `expo-file-system` for robust file operations, including moving recordings from cache to document directory for persistence.
+
+**Blob Creation**: Convert recorded files to blobs for upload using the FileSystem's blob capabilities. 
+
+##### User Feedback and Progress Tracking
+
+**Recording State Management**: Use the camera's built-in state management and implement your own state tracking for the multi-step process (recording → compression → upload).
+
+**Progress Indicators**: Implement progress feedback for each stage of the pipeline, especially important for longer recordings and uploads.
+
+##### Codec and Platform Considerations
+
+**iOS Codec Selection**: On iOS, leverage codec selection through the `codec` option in recording settings for optimal compression. 
+
+**Cross-Platform Compatibility**: The recording system handles platform differences automatically, but be aware that some options are platform-specific.
+
+##### Notes
+
+**Third-Party Compression**: While Expo doesn't include `expo-video-compressor` as a core module, you can integrate third-party compression libraries after recording. The recommended approach is to configure quality settings at recording time rather than post-processing.
+
+**Cloud Upload**: For Firebase Storage integration, use the Firebase JavaScript SDK separately from Expo's recording modules. The recorded video URI from `recordAsync()` can be uploaded directly using Firebase's upload methods.
+
+**Error Recovery**: Implement retry logic for network uploads and provide users with options to retry failed operations. The asynchronous nature of the pipeline requires careful state management to handle interruptions gracefully.
+
+**Testing**: Test the complete pipeline under various conditions including low storage, poor network connectivity, and permission changes to ensure robustness.
+
+
+#### Advanced Navigation and Deep Linking with Expo Router: For an app that requires both modal screens (like a camera that returns data to its previous screen) and a robust deep linking system for user invites, what are the best practices and potential "gotchas" when using expo-router? How can we structure our files and use the API to reliably handle these complex navigation scenarios from development in Expo Go to a production build?
+
+#### Advanced Navigation and Deep Linking with Expo Router
+
+##### Modal Screens with Data Return
+
+For camera modals that return data to the previous screen, Expo Router offers two approaches:
+
+**File-based Modal Routes**: Create a `modal.tsx` file in your app directory and set `presentation: 'modal'` in the stack options.
+
+**Parameter Passing**: Use URL parameters to pass data between screens. You can access these parameters using `useLocalSearchParams()` for contextually focused routes or `useGlobalSearchParams()` for global access.
+
+**Modal Dismissal**: On web, you need to manually handle modal dismissal using `router.canGoBack()` to check if the modal is presented as a standalone screen.
+
+##### Deep Linking for User Invites
+
+**URL Parameter Handling**: Deep links can include both dynamic route parameters and query parameters. These are accessible through the same hooks (`useLocalSearchParams` or `useGlobalSearchParams`).
+
+**Initial Route Configuration**: For reliable deep linking, set `initialRouteName` in your layout files using `unstable_settings` to ensure proper navigation stack initialization even when users access deep links directly.
+
+##### File Structure Best Practices
+
+**Nested Navigation Patterns**: Use route groups `(tabs)` and nested stacks for complex navigation hierarchies. This pattern scales well and provides intuitive URLs.
+
+**Shared Routes**: Use multiple route groups like `(feed,search)` to share screens between different navigation contexts while maintaining proper deep linking behavior.
+
+**Protected Routes**: Implement authentication checks in layout files using `<Redirect>` components to protect routes from unauthenticated access.
+
+##### Development vs Production Gotchas
+
+**Web Modal Implementation**: For web platforms, use `transparentModal` presentation with custom styling and animations. Set `unstable_settings` with `initialRouteName` to ensure modals render correctly over the base route. 
+
+**Platform-specific Behavior**: Modal presentation and dismissal behavior differs across platforms - Android uses slide-up animation with back button dismissal, iOS uses slide-from-bottom with swipe-to-dismiss, and web requires manual dismissal implementation.
+
+**Parameter Decoding**: URL parameters are automatically decoded, with special handling for array values and error recovery for malformed encoding. 
+
+##### Key API Usage Patterns
+
+**Router Navigation**: Use the `useRouter` hook for imperative navigation with methods like `navigate`, `push`, `back`, `replace`, and `setParams` for updating query parameters without navigation. 
+
+**Parameter Management**: Distinguish between local and global search params - use `useLocalSearchParams` for stack-specific parameters that only update when the route is focused, and `useGlobalSearchParams` for background operations that need to observe all parameter changes.
+
+##### Notes
+
+The key to reliable navigation in Expo Router is understanding the file-based routing system and leveraging layout files for navigation configuration. Modal screens work seamlessly with the navigation system when properly configured, and deep linking is handled automatically through the URL parameter system. The main gotchas occur around platform differences in modal behavior and the need for explicit web modal handling. For complex apps with authentication and multiple navigation patterns, using route groups and shared layouts provides the necessary flexibility while maintaining URL consistency.
+
+#### Orchestrating Backend Logic with Push Notifications: What is the recommended architecture for features that require coordination between a Firebase backend (e.g., Cloud Functions triggering on a schedule) and the client app, such as sending timely push notifications? How does the Expo Push Token system integrate with a backend process to reliably target specific users, and what are the trade-offs between putting logic in a backend function versus using Expo's expo-task-manager on the client?
+
+Based on the codebase context, you're asking about orchestrating backend logic with push notifications using Firebase Cloud Functions and Expo's push notification system. Let me break down the recommended architecture and trade-offs.
+
+#### Expo Push Token System Integration
+
+The Expo push notification system works by having clients obtain push tokens that your backend can use to target specific users.
+
+The token registration process includes device identification, development/production environment detection, and automatic retry logic with exponential backoff.
+
+##### Recommended Architecture
+
+###### Client-Side Token Management
+Your app should obtain push tokens using `getExpoPushTokenAsync()` with your project ID
+
+###### Backend Integration Options
+You have several options for push notification services that integrate with Firebase:
+
+1. **Expo Push Service**: Fully compatible with `expo-notifications` and includes dashboard tracking
+
+2. **Direct FCM/APNs**: Send directly to platform APIs while using `expo-notifications` for token retrieval
+
+3. **React Native Firebase**: Use Firebase's cross-platform SDK for unified push notifications
+
+##### Background Processing Trade-offs
+
+###### Backend Functions (Recommended for Scheduled Tasks)
+- **Pros**: Reliable scheduling, server-side logic, no client dependency
+- **Cons**: Requires server infrastructure, potential cold starts
+
+###### Client-Side Background Tasks
+For background notifications, you need `expo-task-manager` and specific configuration:
+
+Background notifications require:
+- Development builds (not supported in Expo Go)
+- iOS: `remote-notification` in `UIBackgroundModes`
+- Data-only payloads with `_contentAvailable: true`
+
+###### Background Fetch (Deprecated)
+Note that `expo-background-fetch` is deprecated in favor of `expo-background-task`
+
+##### Best Practices
+
+1. **Token Management**: Track both Expo push tokens and native device tokens in your database for flexibility
+
+2. **Avoid Mixing Implementations**: Different notification services may have conflicting client-side implementations 
+
+3. **Scheduled Logic**: Use Firebase Cloud Functions for time-based triggers and complex backend logic, reserving client-side background tasks for immediate response to notifications
+
+##### Notes
+
+The architecture choice depends on your specific use case. For scheduled notifications and complex backend coordination, Firebase Cloud Functions with Expo Push Service or direct FCM integration is recommended. Client-side background processing should be reserved for handling incoming notifications rather than initiating scheduled tasks, as it's less reliable and has platform limitations.
+
+#### EAS Build & Update Strategy: For an app that relies on multiple native modules (camera, video, auth), what is a smart strategy for using EAS? When should we trigger a full native eas build versus shipping a feature via an over-the-air eas update? How should we set up eas.json to manage environment variables and secrets (e.g., different Firebase project configurations) for development, preview, and production builds?
+
+Based on the codebase context, you're asking about EAS Build and Update strategy for apps with native modules, specifically around when to use full native builds versus over-the-air updates, and how to configure environment variables and secrets in eas.json.
+
+##### EAS Build vs Update Decision Matrix
+
+For apps with native modules like camera, video, and auth, the decision between full builds and OTA updates depends on what's changing:
+
+**Trigger Full Native Build When:**
+- Adding/removing native modules or dependencies
+- Changing native configuration (permissions, Info.plist, AndroidManifest.xml)
+- Updating React Native version or Expo SDK version
+- Modifying build settings or credentials
+
+**Use OTA Updates For:**
+- JavaScript code changes
+- Asset updates (images, fonts)
+- Configuration changes that don't affect native code
+- Bug fixes in business logic
+
+The updates configuration shows that you can control update behavior, including automatic checking and fallback timeouts.
+
+##### EAS.json Configuration Strategy
+
+Looking at the Expo Go app's configuration as a reference:
+
+This shows the base configuration structure with environment variables for different platforms. For your multi-environment setup, you should structure it like:
+
+```json
+{
+  "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.example.com"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "env": {
+        "FIREBASE_PROJECT_ID": "your-dev-project",
+        "EXPO_PUBLIC_ENV": "development"
+      }
+    },
+    "preview": {
+      "extends": "base", 
+      "env": {
+        "FIREBASE_PROJECT_ID": "your-preview-project",
+        "EXPO_PUBLIC_ENV": "preview"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "env": {
+        "FIREBASE_PROJECT_ID": "your-prod-project",
+        "EXPO_PUBLIC_ENV": "production"
+      }
+    }
+  }
+}
+```
+
+##### Environment Variables and Secrets Management
+
+The workflow syntax shows how environment variables are handled in EAS builds. For secrets management:
+
+1. **Public Variables**: Use `EXPO_PUBLIC_` prefix for client-side variables
+2. **Build Secrets**: Store sensitive values in EAS secrets, not in eas.json
+3. **Firebase Config**: Use different project IDs per environment, store API keys as secrets
+
+##### Build Profile Strategy
+
+This production build configuration shows best practices:
+- Auto-increment version codes/build numbers
+- Disable cache for production builds
+- Use appropriate resource classes
+
+For your native module app, consider:
+
+```json
+{
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview"
+    },
+    "production": {
+      "autoIncrement": true,
+      "cache": {
+        "disabled": true
+      }
+    }
+  }
+}
+```
+
+##### Update Channel Strategy
+
+This test setup shows how environment variables are configured for different update channels. Use channels to separate your environments:
+
+- `development` channel for dev builds
+- `preview` channel for staging/testing
+- `production` channel for live app
+
+##### Notes
+The key is understanding that native modules require full builds when their configuration changes, but JavaScript changes can be delivered via OTA updates. Use EAS secrets for sensitive data and structure your eas.json with inheritance to avoid duplication. The update system works seamlessly with proper channel configuration to ensure users get appropriate updates for their build environment.
+
+Wiki pages you might want to explore:
+- [Overview (expo/expo)](/wiki/expo/expo#1)
+
+</Expo-Research>
+
+<React-Native-Research>
+
+#### High-Performance Media Lists: For a feed-style screen that displays a list of video items (e.g., in a FlatList), what are the most critical patterns (React.memo, useCallback, keyExtractor) and common pitfalls for ensuring smooth scrolling and preventing high memory usage, especially as the list grows? How does this strategy change if the list items need to support animations or video playback?
+
+#### High-Performance Media Lists in React Native
+
+##### Critical Performance Patterns
+
+###### React.memo and PureComponent Optimization
+FlatList is inherently optimized as it extends `React.PureComponent`, which implements shallow comparison to prevent unnecessary re-renders. This means your list items should also use `React.memo` or `PureComponent` to prevent wasteful re-renders when props haven't changed.
+
+###### keyExtractor for Efficient Re-rendering  
+The `keyExtractor` function is critical for React's reconciliation algorithm to efficiently track item changes and re-ordering. FlatList provides a default implementation that checks `item.key` then falls back to index.
+
+###### useCallback for Stable References
+Event handlers like `renderItem`, `onPress`, and `keyExtractor` should be wrapped with `useCallback` to maintain stable references and prevent list re-renders.
+
+###### StrictMode for Enhanced Memoization
+FlatList provides a `strictMode` prop that enables memoization of the item renderer to prevent unnecessary re-renders. When enabled, it uses `memoizeOne` to cache the renderer function.
+
+##### Memory Management Strategies
+
+###### removeClippedSubviews Optimization
+This critical optimization detaches views outside the visible area from the view hierarchy, significantly reducing memory usage for large lists. It's enabled by default on Android.
+
+###### Window Size Management
+The `windowSize` prop controls how many screen lengths of content to render outside the visible area, with a default of 21 screen lengths. Reducing this number decreases memory consumption but may show blank areas during fast scrolling.
+
+###### Rendering Batch Control
+- `initialNumToRender`: Controls initial batch size to fill the screen without over-rendering 
+- `maxToRenderPerBatch`: Limits incremental render batches to balance fill rate with responsiveness
+- `updateCellsBatchingPeriod`: Controls timing between low-priority render batches 
+
+###### Critical Optimization: getItemLayout
+
+For fixed-height items, implementing `getItemLayout` provides massive performance benefits by skipping dynamic content measurement. The React Native codebase provides a practical example implementation.
+
+##### Video Playback and Animation Optimizations
+
+###### Viewability Tracking for Video Management
+For video lists, use `viewabilityConfig` and `onViewableItemsChanged` to automatically pause/play videos based on visibility. The ViewabilityHelper supports multiple threshold configurations:
+
+- `itemVisiblePercentThreshold`: Percentage of item that must be visible 
+- `viewAreaCoveragePercentThreshold`: Percentage of viewport the item must cover 
+- `minimumViewTime`: Minimum time an item must be visible before triggering callbacks
+
+###### Multiple Viewability Configurations
+You can use `viewabilityConfigCallbackPairs` to have different video behaviors (e.g., pause when 50% out of view, but only start playing when 80% visible).
+
+##### Common Pitfalls
+
+###### extraData Dependency
+FlatList won't re-render if external dependencies change unless you update the `extraData` prop. This is crucial when `renderItem` depends on external state.
+
+###### Inline Function Anti-pattern
+Avoid inline functions in `renderItem`, `keyExtractor`, or event handlers as they break PureComponent optimizations by creating new references on every render.
+
+###### Video Memory Management
+For video lists, failing to properly pause off-screen videos can cause memory leaks and poor performance. Always implement viewability-based video management.
+
+###### Animation Performance Impact
+Animations in list items can significantly impact scroll performance. Consider using `useNativeDriver: true` for animations and avoid complex animations during scroll events.
+
+##### Notes
+
+The React Native codebase shows that FlatList is built with performance as a primary concern, implementing multiple layers of optimization from view recycling to memory management. For video-heavy feeds, the combination of proper viewability tracking, `removeClippedSubviews`, and careful window size management becomes even more critical to maintain smooth 60fps scrolling while preventing memory issues as the list grows.
+
+
+
+#### Interactive Camera Overlays: When building a camera screen, what is the most performant and reliable method for rendering interactive UI overlays (e.g., animated buttons, dismissible prompt cards with text) on top of the live camera feed? What are the best practices using react-native-reanimated and react-native-gesture-handler to ensure these UI elements are fluid and do not cause performance degradation on the camera itself?
+
+Based on my analysis of the React Native codebase, I can provide insights into the integration points and performance considerations for these libraries, though I should note that `react-native-reanimated` and `react-native-gesture-handler` are third-party libraries not included in the core React Native repository.
+
+##### Integration with React Native Core
+
+React Native provides built-in support for gesture handler integration through its event system.  The gesture handler events (`onGestureHandlerEvent` and `onGestureHandlerStateChange`) are dynamically injected into React Native's event registration system.
+
+React Native explicitly tests compatibility with these libraries as part of its release process.This indicates their importance to the ecosystem and ensures they work correctly with new React Native versions.
+
+##### Performance Architecture for Animations
+
+React Native's performance architecture is built around the `ReactChoreographer`, which coordinates different types of frame callbacks to ensure smooth rendering. The system prioritizes callbacks in this order: performance markers, UI dispatch, native animated modules, timer events, and idle events.
+
+For native-driven animations, React Native provides the `useNativeDriver` option which offloads animation calculations to the native thread. This prevents animations from blocking the JavaScript thread and provides better performance for camera overlay scenarios.
+
+##### Best Practices for Camera Overlay Performance
+
+###### 1. Native Animation Driver
+Use `useNativeDriver: true` for all animations to run them on the native thread, preventing interference with camera rendering.
+
+###### 2. Frame Synchronization
+React Native's animation system is synchronized with the display refresh rate through the Choreographer API. This ensures animations run at 60fps without frame drops.
+
+###### 3. Thread Management
+The native animated module runs on the UI thread separate from JavaScript, which is crucial for maintaining camera feed performance.
+
+###### 4. Event Handling Optimization
+Touch and gesture events are processed through React Native's optimized event system that supports both bubbling and direct event types. 
+
+##### Performance Considerations
+
+The React Native architecture separates UI updates from JavaScript execution through its frame callback system.  This is essential for camera overlays as it prevents JavaScript-driven animations from interfering with the camera's native rendering pipeline.
+
+For iOS specifically, React Native supports the `shouldRasterizeIOS` prop for performance optimization, which can be beneficial for complex overlay graphics.
+
+##### Notes
+
+While I can provide information about React Native's core animation and performance systems that these libraries build upon, the specific implementation details of `react-native-reanimated` and `react-native-gesture-handler` would require examining their separate repositories. The React Native codebase shows the integration points and performance infrastructure these libraries utilize, but their internal workings and specific best practices for camera overlays would be documented in their respective projects.
+
+The key principle is leveraging React Native's native animation capabilities and proper thread management to ensure overlay interactions don't interfere with camera performance, which these third-party libraries are designed to facilitate.
+
+#### State Management for Complex Screens: Consider a screen that can switch between two major states, such as a "viewer mode" and a "creator mode," which share some UI components but have different functionalities. What state management architecture do you recommend to handle the data flow and UI transitions between these states efficiently, minimizing re-renders and keeping the codebase maintainable?
+
+Based on my analysis of the React Native codebase, here's how React Native handles state management for complex screens with multiple modes and shared UI components:
+
+##### State Management Patterns
+
+React Native demonstrates sophisticated state management through the **reducer pattern** for complex components. The main app component uses `useReducer` with a comprehensive navigation reducer that handles multiple screen modes (Components, APIs, Playgrounds).
+
+The reducer pattern centralizes state transitions through well-defined actions, making state changes predictable and debuggable. Each action type corresponds to specific user interactions like navigation, module selection, or deep linking.
+
+##### Architectural Patterns for Data Flow
+
+###### 1. Unidirectional Data Flow
+The codebase demonstrates unidirectional data flow where state flows down through props and events bubble up through callbacks. Actions are dispatched to update centralized state, which then flows down to child components.
+
+###### 2. Component Composition
+React Native uses a container/presentational component pattern. Container components handle state logic while presentational components focus on rendering, enabling better reusability and testing.
+
+###### 3. Conditional Rendering for Multiple Modes
+Complex screens handle multiple modes through conditional rendering based on state.  The app renders different components (`RNTesterModuleContainer` vs `RNTesterModuleList`) based on the current navigation state.
+
+##### Performance Optimization Strategies
+
+###### 1. Memoization with useCallback and useMemo
+React Native extensively uses `useCallback` to prevent unnecessary re-renders of child components. Event handlers are memoized to maintain referential equality across renders.
+
+The codebase also demonstrates `useMemo` for expensive computations. Lists and derived state are memoized to avoid recalculation on every render.
+
+###### 2. Context Provider Optimization
+React Native implements Context Provider patterns with conditional rendering to minimize re-renders. Components check context values and conditionally render different implementations based on their ancestry.
+
+###### 3. State Structure Optimization
+The navigation state is structured to minimize updates. Recently used items are tracked separately from main navigation state, allowing targeted updates without affecting the entire component tree.
+
+##### Shared UI Component Patterns
+
+###### 1. Theme Context Provider
+React Native uses Context for sharing UI themes across components. This enables consistent styling while allowing easy theme switching without prop drilling.
+
+###### 2. Component Variants
+Shared components handle multiple modes through props and internal state. Components like `RNTesterModuleContainer` render differently based on module configuration (`showIndividualExamples`).
+
+###### 3. Pressable Component Pattern
+React Native's `Pressable` component demonstrates advanced state management for interactive elements. It uses internal state for press tracking while exposing render props for custom styling based on interaction state.
+
+##### Recommended Architectural Patterns
+1. **Use useReducer for complex state logic** - Centralize state transitions through reducers rather than multiple useState calls
+2. **Implement memoization strategically** - Use useCallback for event handlers and useMemo for expensive computations
+3. **Structure state to minimize updates** - Separate frequently changing state from stable configuration
+4. **Leverage Context for cross-cutting concerns** - Use Context Providers for themes, user preferences, and global state
+5. **Design components with multiple modes** - Use props and conditional rendering rather than creating separate components for each variant
+
+##### Notes
+The React Native codebase demonstrates mature patterns for handling complex UIs with multiple modes. The RNTester app serves as an excellent reference implementation, showing how to structure state management, optimize performance, and create reusable components. The architecture emphasizes predictable state flow, performance optimization through memoization, and flexible component design that can handle various display modes efficiently.
+
+#### Custom Font and Theming Strategy: What is the industry-standard approach for implementing a design system with custom fonts and a defined color palette in a new React Native project? How can we structure our StyleSheet usage and theme provider to ensure consistency, performance (avoiding inline styles), and ease of maintenance as the app scales?
+
+#### React Native Custom Fonts, Theming, and StyleSheet Best Practices
+
+React Native provides comprehensive support for custom fonts and theming through its styling system, with several built-in APIs and optimization strategies for building maintainable design systems.
+
+##### Custom Fonts Support
+
+React Native supports custom fonts through the `fontFamily` property in StyleSheet configurations.  The implementation differs between platforms:
+
+**iOS Implementation**: Custom fonts are handled through the `RCTFont.mm` implementation, which provides sophisticated font matching, weight detection, and style processing. The system supports font family names, individual font names, and includes fallback mechanisms when fonts aren't found.
+
+**Android Implementation**: The `ReactFontManager` provides methods for adding custom fonts and managing typefaces with different weights and styles.
+
+**Font Variants**: React Native supports advanced typography features through the `fontVariant` property, including small-caps, ligatures, and stylistic alternatives.
+
+##### Theming and Dark Mode Support
+
+React Native provides built-in theming support through the Appearance API, which detects and responds to system appearance changes.
+
+**Appearance API**: The core theming functionality allows detecting the current color scheme and listening for changes. 
+
+**useColorScheme Hook**: A React hook provides reactive access to the current color scheme using `useSyncExternalStore`. 
+
+**Dynamic Colors (iOS)**: The `DynamicColorIOS` API enables automatic color switching based on system appearance, including support for high contrast modes.
+
+**Theme Implementation Pattern**: The RN Tester app demonstrates a comprehensive theme implementation using React Context, with separate light and dark theme objects.
+
+##### StyleSheet Performance and Best Practices
+
+###### Optimization Methods
+
+**StyleSheet.create()**: The primary method for defining styles provides optimization and validation in development mode. This method freezes style objects in development to prevent mutation and enables better performance.
+
+**Style Composition**: The `StyleSheet.compose()` method efficiently combines styles without unnecessary array allocations when one style is null.
+
+**Style Flattening**: The `StyleSheet.flatten()` method resolves nested style arrays into single objects, optimizing style processing.
+
+###### Type Safety and Structure
+
+React Native provides comprehensive type definitions for different component styles:
+
+**Hierarchical Style Types**: The type system separates `ViewStyle`, `TextStyle`, and `ImageStyle` with clear inheritance patterns.
+
+**Property Categories**: Styles are organized into logical categories including Flexbox layout, visual properties, transforms, and platform-specific features.
+
+##### Design System Best Practices
+
+###### Architecture Recommendations
+
+**Modular Style Organization**: Follow React Native's own pattern of separating style concerns by component type and functionality, as demonstrated in the core styling system. 
+
+**Theme Provider Pattern**: Implement theme providers using React Context, similar to the RNTester implementation, which provides centralized theme management.
+
+**Performance Optimization**: Use `StyleSheet.create()` for static styles, `StyleSheet.compose()` for conditional style combinations, and avoid inline style objects in render methods. 
+
+###### Maintainability Strategies
+
+**Type-Safe Style Props**: Use specific style prop types (`ViewStyleProp`, `TextStyleProp`, `ImageStyleProp`) to ensure components only receive appropriate styles. 
+
+**Consistent Color Management**: Leverage the Appearance API for system-aware theming and consider using `DynamicColorIOS` for iOS-specific dynamic color behavior.
+
+**Style Validation**: Take advantage of React Native's built-in style attribute validation and preprocessing system.
+
+##### Notes
+
+React Native's styling system is designed for both performance and developer experience, providing type safety, optimization methods, and comprehensive theming support. The key to building maintainable design systems is leveraging these built-in capabilities while following established patterns for style organization and theme management. The framework's separation of concerns between layout (Flexbox), visual properties, and platform-specific features provides a solid foundation for scalable design system architecture.
+</React-Native-Research>
+
+
+### Glossary of Terms
+This glossary defines the product's branded, user-facing terms and maps them to their technical scope to ensure clear communication across design, engineering, and product.
+| **Branded Term** | **Technical Equivalent / Scope** | **User-Facing Definition & Context** |
+|---|---|---|
+| **Waffle** | The core product concept; a single video message and the name of the application itself. | "A weekly video update you send to a friend. The central 'object' of communication in the app." |
+| **Waffles** | The main chats list screen, rendered by app/(tabs)/chats/index.tsx. | "Your home screen, showing a list of all your ongoing conversations. A user would say, 'Let me check my Waffles.'" |
+| **Stack** | A single, 1-to-1 chat thread, rendered by app/(tabs)/chats/[chatId].tsx. | "The entire conversation history with one person. It's a 'stack' of all the video Waffles you've exchanged over time." |
+| **Pour** | The action of recording and sending a new video from the camera.tsx modal. | "The verb for creating a new video Waffle. The UI will prompt the user to 'Pour a new Waffle' or celebrate a 'great Pour!'" |
+
+### Definition of Done (DoD)
+For any feature or user story in this PRD to be considered "Done" and ready for release, it must meet the following criteria across all relevant categories. This checklist serves as the quality gate for QA and development
+.
+**✅ Functionality**
+* [ ] Feature behavior matches the description in the "Core Features" table of the PRD.
+* [ ] All associated user flows are fully implemented and functional.
+* [ ] The feature handles valid inputs, invalid inputs (e.g., empty text fields), and edge cases without crashing.
+* [ ] All business logic (e.g., streak calculation, video expiration) is implemented correctly per the rules defined in the PRD.
+
+⠀**✅ UI/UX & Design**
+* [ ] Implementation perfectly matches the "Visual Design Direction" (colors, fonts, spacing, etc.).
+* [ ] Layout is responsive and appears correctly on all target device sizes without broken elements.
+* [ ] All interactive elements (buttons, list items, icons) have clear and immediate visual feedback on tap/press.
+* [ ] Necessary loading states (e.g., spinners, content placeholders) are implemented for any asynchronous operations (e.g., fetching chats, uploading video).
+* [ ] Error states are handled gracefully, presenting the user with a clear, human-readable message (e.g., "Upload failed. Please check your connection and try again.").
+
+⠀**✅ Technical & Code Quality**
+* [ ] Code is understandable, commented where complex logic exists, and follows established project conventions.
+* [ ] No sensitive information (API keys, secrets) is hardcoded or committed to the source repository.
+* [ ] Firebase Security Rules have been tested and updated to cover any new data paths introduced by the feature.
+* [ ] Client-side performance is acceptable; the feature does not introduce noticeable lag or stuttering into the UI.
+
+⠀**✅ Testing & Quality Assurance**
+* [ ] The feature has been successfully tested on the minimum supported OS versions defined for the project.
+* [ ] The "happy path" flow works as expected.
+* [ ] Common edge cases have been tested (e.g., poor network connection, user denying permissions, interrupting a flow).
+* [ ] Any new analytics events defined for the feature are firing correctly and have been verified in the analytics platform.
+* [ ] The feature meets the accessibility standards defined in the PRD (minimum contrast ratios and tap target sizes).
+
+</PRD>⠀

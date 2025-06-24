@@ -1,0 +1,969 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Firebase Backend Infrastructure",
+        "description": "Initialize Firebase project with Authentication, Firestore, Storage, and Cloud Functions. Configure security rules and environment setup for development, preview, and production.",
+        "details": "1. Create Firebase project with Authentication (Apple, SMS), Firestore, Storage, Cloud Functions\n2. Implement Firestore security rules:\n   - Users can only read/write their own profile\n   - Chat members can read/write to chats and videos subcollection\n   - Prevent direct chat creation (must use Cloud Function)\n3. Implement Storage security rules for video access control\n4. Set up Firebase project configurations for dev/preview/prod environments\n5. Create Cloud Function for createChat with recipientId validation\n6. Configure Firebase SDK in React Native project with environment-specific configs",
+        "testStrategy": "Test Firebase connection, verify security rules block unauthorized access, test createChat function with valid/invalid users, validate environment switching works correctly",
+        "priority": "high",
+        "dependencies": [],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Firebase Project and Install Firebase CLI",
+            "description": "Set up a new Firebase project and install the Firebase Command Line Interface (CLI) to manage Firebase services.",
+            "dependencies": [],
+            "details": "Create a Firebase project via the Firebase Console and install the Firebase CLI using npm. Log in to your Firebase account through the CLI.",
+            "status": "in-progress",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Set Up Firebase Authentication",
+            "description": "Configure Firebase Authentication to manage user sign-in and sign-up processes.",
+            "dependencies": [
+              1
+            ],
+            "details": "Enable desired authentication methods (e.g., email/password, Google Sign-In) in the Firebase Console under the Authentication section.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure Firestore Database",
+            "description": "Set up Firestore as the database solution for your application.",
+            "dependencies": [
+              1
+            ],
+            "details": "In the Firebase Console, navigate to Firestore Database, create a new database, and select the appropriate security rules and location settings.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Set Up Firebase Cloud Storage",
+            "description": "Configure Firebase Cloud Storage to handle file uploads and storage.",
+            "dependencies": [
+              1
+            ],
+            "details": "In the Firebase Console, navigate to Storage, set up a new storage bucket, and configure access settings.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Firebase Cloud Functions",
+            "description": "Set up Firebase Cloud Functions to run backend code in response to events triggered by Firebase features and HTTPS requests.",
+            "dependencies": [
+              1
+            ],
+            "details": "Initialize Cloud Functions in your project directory using the Firebase CLI, choose the preferred language (e.g., JavaScript or TypeScript), and write functions to handle specific events.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Configure Security Rules and Environment Settings",
+            "description": "Define security rules for Firestore and Cloud Storage, and set environment configurations for Cloud Functions.",
+            "dependencies": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "details": "Write and deploy security rules to control access to Firestore and Cloud Storage. Use the Firebase CLI to set environment configuration variables for Cloud Functions.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Initialize React Native Project with Expo Router",
+        "description": "Set up React Native project with Expo, configure file-based routing structure, implement navigation architecture, and establish design system foundation.",
+        "details": "1. Initialize Expo project with latest SDK\n2. Install expo-router and configure file-based routing:\n   - app/(tabs)/chats/index.tsx (Waffles list)\n   - app/(tabs)/chats/[chatId].tsx (Stack)\n   - app/(tabs)/chats/camera.tsx (Pour modal)\n   - app/(tabs)/invite.tsx\n   - app/(tabs)/settings.tsx\n3. Set up tab navigation with branded names\n4. Configure theme provider with design system colors:\n   - Creamy White: #FAF7F2\n   - Waffle Yellow: #FDB833\n   - Burnt Orange: #E57345\n   - Dark Charcoal: #3A3A3A\n5. Install and configure custom fonts (Poppins, Inter)\n6. Set up StyleSheet architecture with theme context\n7. Implement accessibility standards (WCAG AA contrast, 44x44 tap targets)",
+        "testStrategy": "Verify navigation works between all screens, test theme switching, validate font loading, check accessibility compliance with contrast ratios and tap target sizes",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize a New Expo Project",
+            "description": "Set up a new React Native project using Expo to serve as the foundation for development.",
+            "dependencies": [],
+            "details": "Use the Expo CLI to create a new project by running `npx create-expo-app my-app` in your terminal. This command initializes a new Expo project named 'my-app'.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Install and Configure Expo Router for Navigation",
+            "description": "Integrate Expo Router to manage navigation within the application.",
+            "dependencies": [
+              1
+            ],
+            "details": "Navigate to your project directory and install Expo Router by running `npx expo install expo-router`. Then, create an `app` directory in your project root. Inside this directory, create a file named `_layout.js` to define the root layout and navigation structure. For example, you can set up a basic stack navigator within this file.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create and Configure Screen Components",
+            "description": "Develop individual screen components and set up their corresponding routes.",
+            "dependencies": [
+              2
+            ],
+            "details": "Within the `app` directory, create files for each screen component, such as `index.js` for the home screen and `details.js` for a details screen. Each file should export a React component representing the screen. The file-based routing system of Expo Router will automatically map these files to their respective routes.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Navigation Between Screens",
+            "description": "Enable navigation between different screens using Expo Router's linking capabilities.",
+            "dependencies": [
+              3
+            ],
+            "details": "Utilize the `Link` component from Expo Router to navigate between screens. For instance, in your home screen component, you can include a link to the details screen using `<Link href='/details'>Go to Details</Link>`. This approach leverages Expo Router's file-based routing to handle navigation seamlessly.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Establish a Design System with NativeWind",
+            "description": "Integrate NativeWind to implement a consistent design system using Tailwind CSS in React Native.",
+            "dependencies": [
+              1
+            ],
+            "details": "Install NativeWind and Tailwind CSS by running `npm install nativewind` and `npm install -D tailwindcss`. Configure Tailwind by creating a `tailwind.config.js` file and specifying the content paths to your components. Additionally, update your `babel.config.js` to include the NativeWind plugin. This setup allows you to use Tailwind CSS classes in your React Native components, facilitating a consistent and efficient design system.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Implement User Authentication Flow",
+        "description": "Build complete authentication system with Firebase Auth supporting Apple Sign-In and SMS verification, including onboarding screens and user profile management.",
+        "details": "1. Create onboarding flow with 3-screen Swiper:\n   - High-quality waffle-themed illustrations\n   - Value proposition messaging\n   - 'Let's Get Started' CTA\n2. Implement Firebase Authentication:\n   - Apple Sign-In integration\n   - SMS verification flow\n   - Terms and conditions notice on sign-up\n3. Create user profile creation/editing:\n   - displayName, photoURL, phoneNumber fields\n   - Profile picture upload to Firebase Storage\n4. Implement authentication state management:\n   - Protected routes with redirect logic\n   - Persistent login state\n   - Logout functionality\n5. Create users/{userId} Firestore documents on first login\n6. Handle authentication errors gracefully",
+        "testStrategy": "Test Apple Sign-In flow, verify SMS verification, test profile creation/editing, validate protected routes redirect properly, test authentication persistence across app restarts",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Firebase Project and Configure Authentication Methods",
+            "description": "Initialize a Firebase project and enable authentication methods including Email/Password, Apple Sign-In, and Phone Authentication.",
+            "dependencies": [],
+            "details": "Create a new Firebase project in the Firebase Console. Navigate to the Authentication section and enable Email/Password, Apple Sign-In, and Phone Authentication methods. Ensure that the necessary configurations for each method are completed as per Firebase documentation.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Onboarding Screens",
+            "description": "Design and develop onboarding screens to guide users through the authentication process.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create user-friendly onboarding screens that introduce the app's features and guide users to the authentication options. Ensure the design aligns with the app's overall UI/UX standards.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Integrate Email/Password Authentication",
+            "description": "Implement functionality for users to sign up and log in using email and password credentials.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Develop forms for user registration and login using email and password. Utilize Firebase Authentication SDK to handle user creation, login, and error handling. Ensure secure password policies are enforced.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Apple Sign-In",
+            "description": "Add support for users to sign in using their Apple ID.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Integrate Sign in with Apple into the app by configuring the necessary capabilities in Xcode and implementing the authentication flow using Firebase Authentication SDK. Handle user information securely and comply with Apple's guidelines.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Set Up Phone Number Authentication with SMS Verification",
+            "description": "Enable users to authenticate using their phone numbers with SMS-based verification.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement phone number sign-in by configuring Firebase Authentication to send verification codes via SMS. Handle the verification process and sign in the user upon successful code entry. Ensure compliance with security best practices.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Develop User Profile Management Features",
+            "description": "Create functionalities for users to view and edit their profile information.",
+            "dependencies": [
+              3,
+              4,
+              5
+            ],
+            "details": "Implement user profile management allowing users to update their personal information, change passwords, and manage linked authentication methods. Ensure data is securely stored and synchronized with Firebase.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement Multi-Factor Authentication (MFA)",
+            "description": "Enhance security by adding multi-factor authentication options.",
+            "dependencies": [
+              3,
+              4,
+              5,
+              6
+            ],
+            "details": "Integrate multi-factor authentication by enabling SMS-based verification as a second factor. Configure Firebase Authentication to support MFA and provide users with the option to enroll and manage their second-factor authentication methods.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Build Video Recording and Compression System",
+        "description": "Implement full-screen video recording with expo-camera, client-side compression, and Firebase Storage upload with progress tracking.",
+        "details": "1. Create camera.tsx modal with expo-camera:\n   - Full-screen portrait mode, front-facing camera default\n   - 5-minute recording limit with visible countdown\n   - 720p quality targeting 10-15MB per minute\n2. Implement video compression:\n   - Research and integrate expo-video-compressor or similar\n   - Target <15 second upload time on WiFi/5G\n   - Compress to balance quality vs file size\n3. Create upload pipeline:\n   - Upload to Firebase Storage path: videos/{chatId}/{videoId}.mp4\n   - Progress indicator during upload\n   - Retry logic for failed uploads\n   - Generate secure download URLs\n4. Handle permissions:\n   - Camera and microphone permission requests\n   - Graceful permission denial handling\n5. Implement recording UI:\n   - Large circular record button (Waffle Yellow)\n   - Recording state animations (circle to square)\n   - Cancel and confirm actions",
+        "testStrategy": "Test video recording quality and duration limits, verify compression reduces file size significantly, test upload progress and retry logic, validate permissions handling, test recording UI state changes",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Full-Screen Video Recording",
+            "description": "Implement functionality to record videos in full-screen mode using the device's camera.",
+            "dependencies": [],
+            "details": "Develop a user interface that allows users to initiate and stop video recording in full-screen mode. Ensure the application requests and handles necessary media permissions to access the device's camera and microphone.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Client-Side Video Compression",
+            "description": "Integrate client-side video compression to reduce file sizes before upload.",
+            "dependencies": [
+              1
+            ],
+            "details": "Utilize libraries such as FFmpeg to compress recorded video files on the client side. This process should reduce the file size while maintaining acceptable video quality, optimizing upload times and storage usage.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure Firebase Storage",
+            "description": "Set up Firebase Storage to handle video file uploads.",
+            "dependencies": [],
+            "details": "Initialize Firebase in the application and configure Firebase Storage to store video files. Ensure appropriate security rules are in place to manage access and protect user data.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Video Upload with Progress Tracking",
+            "description": "Develop functionality to upload compressed video files to Firebase Storage with real-time progress tracking.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Use Firebase's upload functions to handle video file uploads. Implement progress indicators by monitoring the upload state and updating the user interface accordingly to provide feedback on the upload status.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Handle Upload Errors and Edge Cases",
+            "description": "Implement error handling and manage edge cases during the upload process.",
+            "dependencies": [
+              4
+            ],
+            "details": "Ensure the application gracefully handles errors such as network interruptions or permission issues during the upload process. Provide appropriate user feedback and options to retry or cancel the upload.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Optimize Video Playback and Storage Costs",
+            "description": "Implement strategies to optimize video playback performance and reduce storage costs.",
+            "dependencies": [
+              3
+            ],
+            "details": "Consider integrating a Content Delivery Network (CDN) to serve video files efficiently. Apply caching headers to media files to improve load times and reduce bandwidth usage. Explore options for adaptive streaming formats like HLS to enhance playback quality across different devices and network conditions.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Create Chat List Screen (Waffles)",
+        "description": "Build the main chats list screen with FlatList optimization, chat creation via Cloud Function, and real-time updates from Firestore.",
+        "details": "1. Create chats/index.tsx with optimized FlatList:\n   - ChatListItem components with Avatar, Title, Status\n   - React.memo optimization for list items\n   - Proper keyExtractor and useCallback for performance\n2. Implement chat data fetching:\n   - Real-time Firestore listener for user's chats\n   - Filter chats where user is in members array\n   - Sort by lastUpdated timestamp\n3. Create ChatListItem styling:\n   - Card design with subtle shadows\n   - Circular avatars with fallback colors (Burnt Orange/Waffle Yellow)\n   - Unread indicator (Waffle Yellow dot)\n   - Header font (Poppins Bold) with Dark Charcoal text\n4. Handle empty state:\n   - Waffle-themed illustration\n   - Encouraging message to invite friends\n5. Implement navigation to chat threads\n6. Add pull-to-refresh functionality",
+        "testStrategy": "Test FlatList performance with multiple chats, verify real-time updates when new chats are created, test empty state display, validate navigation to chat threads, test pull-to-refresh",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and Implement the Main Chats List Screen",
+            "description": "Create the user interface for the main chats list screen using React Native's FlatList component.",
+            "dependencies": [],
+            "details": "Develop the layout and styling for the chats list screen, ensuring it is user-friendly and responsive. Utilize the FlatList component to efficiently render the list of chats.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Optimize FlatList Performance",
+            "description": "Enhance the performance of the FlatList component to ensure smooth scrolling and efficient rendering.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement optimization techniques such as setting 'initialNumToRender' to control the number of items rendered initially, using 'getItemLayout' if items have a fixed height, and memoizing list items with React.memo to prevent unnecessary re-renders. Additionally, consider using 'removeClippedSubviews' to unload off-screen items and 'windowSize' to adjust the number of items rendered outside the viewport.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Chat Creation via Cloud Function",
+            "description": "Set up a Cloud Function to handle the creation of new chat entries in Firestore.",
+            "dependencies": [],
+            "details": "Develop a serverless function that listens for chat creation requests, validates the input, and writes the new chat data to Firestore. Ensure proper error handling and security measures are in place.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Integrate Real-Time Updates from Firestore",
+            "description": "Enable real-time synchronization of chat data between Firestore and the chats list screen.",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Utilize Firestore's real-time listeners to monitor changes in the chats collection. Update the FlatList data source accordingly to reflect new chats, updates, or deletions in real-time.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Conduct Performance Testing and Optimization",
+            "description": "Test the chats list screen for performance issues and apply further optimizations as needed.",
+            "dependencies": [
+              2,
+              4
+            ],
+            "details": "Use profiling tools to identify bottlenecks in rendering and data fetching. Adjust FlatList properties such as 'maxToRenderPerBatch' and 'windowSize' based on test results. Ensure that the app performs well under various conditions, including large datasets and rapid data changes.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Build Chat Thread Screen (Stack)",
+        "description": "Create the main conversation screen with dual-purpose video player/recorder area and timeline of video thumbnails.",
+        "details": "1. Create chats/[chatId].tsx with 80/20 layout:\n   - Top 80%: PlayerView for video playback\n   - Bottom 20%: Horizontal FlatList timeline\n2. Implement video player:\n   - Full-width video component with controls\n   - Playback speed controls (Waffle Yellow styling)\n   - Auto-play latest video on screen load\n3. Create timeline component:\n   - Horizontal FlatList of video thumbnails\n   - TimelineItem with rounded corners\n   - Active video indicator (2px Waffle Yellow border)\n   - Tap to play different videos\n4. Fetch and display videos:\n   - Real-time listener for videos subcollection\n   - Sort by createdAt timestamp\n   - Handle loading states\n5. Implement record button:\n   - Prominent, stationary position\n   - Navigate to camera modal\n   - Pass chatId context\n6. Handle expired videos:\n   - Blur/desaturate expired videos (isExpired: true)\n   - Show 'Streak broken 💔' icon\n   - Make unplayable",
+        "testStrategy": "Test video playback controls, verify timeline navigation between videos, test record button navigation, validate real-time video updates, test expired video rendering",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Chat Thread UI Layout",
+            "description": "Create the user interface layout for the chat thread, including message bubbles, input fields, and integration points for video components.",
+            "dependencies": [],
+            "details": "Focus on a responsive design that accommodates text messages and video content seamlessly.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Video Playback Functionality",
+            "description": "Integrate a video player into the chat interface to allow users to play received video messages.",
+            "dependencies": [
+              1
+            ],
+            "details": "Utilize the 'react-native-video' library to handle video playback within the chat screen.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Develop Video Recording Feature",
+            "description": "Enable users to record and send video messages directly from the chat interface.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement video recording using appropriate libraries and ensure smooth integration with the chat input.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Generate Video Thumbnails",
+            "description": "Create thumbnail images for video messages to display in the chat timeline.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Use the 'expo-video-thumbnails' library to generate thumbnails for both recorded and received videos.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Video Thumbnail Timeline",
+            "description": "Develop a timeline feature that displays video thumbnails, allowing users to navigate through video messages efficiently.",
+            "dependencies": [
+              4
+            ],
+            "details": "Design an interactive timeline component that showcases video thumbnails in chronological order.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Manage Video State and Synchronization",
+            "description": "Ensure proper state management and synchronization between video playback, recording, and the chat interface.",
+            "dependencies": [
+              2,
+              3,
+              5
+            ],
+            "details": "Implement state management solutions to handle video loading, playing, recording, and syncing with the chat timeline.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Implement Video Upload and Firestore Integration",
+        "description": "Complete the video creation flow by integrating recording with Firestore document creation and implementing the core video data model.",
+        "details": "1. Create video document structure in Firestore:\n   - chats/{chatId}/videos/{videoId} with senderId, storagePath, createdAt, duration fields\n   - Generate unique videoId using Firestore auto-ID\n2. Implement post-recording flow:\n   - Upload compressed video to Storage\n   - Create Firestore document with metadata\n   - Update chat's lastUpdated timestamp\n   - Navigate back to chat thread\n3. Handle upload states:\n   - Show progress indicator during upload\n   - Handle upload failures with retry options\n   - Prevent multiple simultaneous uploads\n4. Implement video metadata extraction:\n   - Calculate and store video duration\n   - Store file size for analytics\n5. Add transcript placeholder field for future RAG features\n6. Update chat streakCount logic (increment on successful upload)\n7. Implement error handling for storage/Firestore failures",
+        "testStrategy": "Test complete record-to-view flow, verify Firestore documents created correctly, test upload failure scenarios, validate chat updates after video creation, test concurrent upload prevention",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Firebase Project and Configure Services",
+            "description": "Initialize a Firebase project and configure Firestore and Cloud Storage services.",
+            "dependencies": [],
+            "details": "Create a new Firebase project in the Firebase Console. Enable Firestore for database services and Cloud Storage for storing video files. Configure security rules to manage access to these services.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Design Video Data Model for Firestore",
+            "description": "Define the structure of video documents in Firestore to store metadata.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create a 'videos' collection in Firestore. Each document should include fields such as 'videoUrl', 'thumbnailUrl', 'title', 'description', 'uploadedAt', and 'userId'. Ensure the data model adheres to Firestore's best practices, avoiding deep nesting and considering scalability.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Video Upload Functionality",
+            "description": "Develop functionality to upload video files to Firebase Cloud Storage.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create a user interface that allows users to select and upload video files. Use Firebase SDKs to handle the upload process, ensuring robust operations that can handle network interruptions. Optionally, implement progress indicators and error handling for a better user experience.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Generate and Upload Video Thumbnails",
+            "description": "Create thumbnail images for uploaded videos and store them in Cloud Storage.",
+            "dependencies": [
+              3
+            ],
+            "details": "After a video is uploaded, generate a thumbnail image using client-side or server-side processing. Upload the thumbnail to Cloud Storage and obtain its URL for use in Firestore metadata.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Store Video Metadata in Firestore",
+            "description": "Save metadata of uploaded videos in Firestore documents.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "After uploading the video and thumbnail, create a new document in the 'videos' collection with the video's metadata, including URLs, title, description, upload timestamp, and user ID. Ensure data consistency between Cloud Storage and Firestore.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement Video Playback Feature",
+            "description": "Develop functionality to retrieve and play videos stored in Cloud Storage.",
+            "dependencies": [
+              5
+            ],
+            "details": "Create a user interface that lists available videos by fetching metadata from Firestore. Implement a video player that streams videos directly from Cloud Storage using the stored URLs. Ensure proper handling of different video formats and network conditions.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Create Invite System with Deep Linking",
+        "description": "Build the invite friends screen with share functionality and deep linking to enable user growth and chat creation.",
+        "details": "1. Create invite.tsx screen with ActionGrid:\n   - Share Link and Copy Link buttons (Waffle Yellow styling)\n   - Waffle-themed illustrations\n   - Simple, clean layout for MVP\n2. Implement deep linking with expo-router:\n   - Generate unique invite URLs: waffleapp.com/invite?by=userId\n   - Handle incoming deep links in app\n   - Parse userId from invite parameters\n3. Create invite flow logic:\n   - Generate shareable links with current user's ID\n   - Handle link sharing via native share sheet\n   - Copy link to clipboard functionality\n4. Implement new user invite handling:\n   - Detect if user came from invite link\n   - Store inviter information during onboarding\n   - Trigger chat creation after successful signup\n5. Add invite analytics tracking:\n   - Track invite link generation\n   - Track successful invite conversions\n6. Handle edge cases:\n   - Invalid invite links\n   - Self-invites\n   - Already connected users",
+        "testStrategy": "Test invite link generation and sharing, verify deep link handling, test chat creation from invites, validate analytics tracking, test edge cases like invalid links",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design the Invite Friends Screen",
+            "description": "Create a user-friendly interface for the 'Invite Friends' feature, allowing users to share invitations via various channels.",
+            "dependencies": [],
+            "details": "Design the layout and user flow for the 'Invite Friends' screen, ensuring it includes options for sharing via email, SMS, and social media. The design should be intuitive and align with the app's overall aesthetic.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Share Functionality",
+            "description": "Develop the backend logic to enable users to share invitations through different platforms.",
+            "dependencies": [
+              1
+            ],
+            "details": "Integrate sharing capabilities using platform-specific APIs to allow users to send invitations via email, SMS, and social media. Ensure that each shared invitation includes a unique deep link that directs recipients to the app.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure Deep Linking for iOS",
+            "description": "Set up deep linking on iOS to handle incoming links and navigate users to the appropriate content within the app.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement Universal Links by configuring associated domains in the Apple Developer portal and creating an 'apple-app-site-association' file. Handle incoming links in the AppDelegate to direct users to the correct screen upon app launch.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Configure Deep Linking for Android",
+            "description": "Set up deep linking on Android to handle incoming links and navigate users to the appropriate content within the app.",
+            "dependencies": [
+              2
+            ],
+            "details": "Define intent filters in the AndroidManifest.xml file to handle specific URL patterns. Implement logic in the activity to parse incoming intents and direct users to the correct screen upon app launch.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Deferred Deep Linking",
+            "description": "Ensure that users who install the app via an invitation link are directed to the intended content after installation.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Implement deferred deep linking by capturing the referral information from the invitation link and storing it until the app is installed. Upon first launch, retrieve this information to navigate users to the specific content or initiate chat creation as intended.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Build Settings and Profile Management",
+        "description": "Create the settings screen with profile editing, notification preferences, and account management features.",
+        "details": "1. Create settings.tsx with SectionList layout:\n   - ProfileHeader at top with user info\n   - Grouped settings sections\n   - SettingsListItem components\n2. Implement profile editing:\n   - Edit displayName with validation\n   - Profile picture upload/change\n   - Phone number display (read-only)\n3. Add notification preferences:\n   - Push notification toggle\n   - Reminder timing preferences\n   - Weekly check-in preferences\n4. Include account management:\n   - Data usage display\n   - Logout functionality\n   - Account deletion option\n5. Style with design system:\n   - Waffle Yellow/Burnt Orange icon backgrounds\n   - Header font for titles\n   - Proper contrast ratios\n6. Implement data persistence:\n   - Save preferences to Firestore\n   - Real-time sync across devices\n7. Add version information and legal links",
+        "testStrategy": "Test profile editing and image upload, verify notification preferences save correctly, test logout functionality, validate data usage display, test account deletion flow",
+        "priority": "low",
+        "dependencies": [
+          1,
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Information Architecture for Settings Screen",
+            "description": "Develop a structured layout for the settings screen, categorizing features like profile editing, notification preferences, and account management.",
+            "dependencies": [],
+            "details": "Organize settings into intuitive categories to enhance user navigation. Group related settings under clear headings and prioritize frequently used options at the top. Ensure the design aligns with user expectations and standard practices.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Profile Editing Functionality",
+            "description": "Develop the interface and backend logic to allow users to view and edit their profile information.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create input fields for user details such as name, email, and profile picture. Ensure data validation and provide immediate feedback on changes. Implement secure data storage and retrieval mechanisms to maintain user data integrity.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Develop Notification Preferences Management",
+            "description": "Create a system for users to customize their notification settings across various channels.",
+            "dependencies": [
+              1
+            ],
+            "details": "Allow users to enable or disable notifications for different categories and select preferred channels (e.g., email, SMS, push notifications). Provide clear descriptions for each option and ensure changes are saved and applied immediately.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Set Up Account Management Features",
+            "description": "Implement functionalities for users to manage their account settings, including password changes and account deletion.",
+            "dependencies": [
+              1
+            ],
+            "details": "Provide options for users to update their passwords, manage linked accounts, and delete their accounts if desired. Ensure all actions are secure, with appropriate confirmations and safeguards to prevent accidental changes.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Conduct Usability Testing and Gather Feedback",
+            "description": "Test the settings screen with users to identify usability issues and gather feedback for improvements.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Organize usability testing sessions to observe user interactions with the settings screen. Collect feedback on the ease of navigation, clarity of options, and overall user satisfaction. Use insights to make necessary adjustments and enhancements.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Implement Smart Reminders and Streak System",
+        "description": "Build the backend Cloud Function for daily video expiration checks, push notifications, and streak management.",
+        "details": "1. Create daily Cloud Function (scheduled):\n   - Check all videos for 7-day expiration\n   - Send push notifications 24 hours before expiry\n   - Set isExpired: true on expired videos\n   - Reset streakCount to 0 in parent chat\n2. Implement push notification system:\n   - Integrate with Expo Push Service\n   - Store push tokens in user documents\n   - Send contextual reminder messages\n   - Handle notification permissions\n3. Build streak calculation logic:\n   - Increment streakCount on valid replies within 7 days\n   - Track streak history for analytics\n   - Display streak counts in UI\n4. Create notification handling:\n   - Deep link to specific chats from notifications\n   - Handle notification taps when app is closed\n   - Badge count management\n5. Implement client-side notification setup:\n   - Request permissions on first launch\n   - Register push tokens with Firebase\n   - Handle token refresh\n6. Add streak visualization in chat UI:\n   - Show current streak count\n   - Celebrate streak milestones",
+        "testStrategy": "Test Cloud Function execution on schedule, verify push notifications sent correctly, test streak calculation logic, validate notification deep linking, test permission handling",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3,
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Cloud Scheduler to Trigger Daily Execution",
+            "description": "Configure Google Cloud Scheduler to invoke the Cloud Function at a specified time each day.",
+            "dependencies": [],
+            "details": "Create a Cloud Scheduler job that triggers the Cloud Function daily at a designated time, ensuring timely execution of video expiration checks and streak management tasks.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Develop Cloud Function for Video Expiration Checks",
+            "description": "Implement a Cloud Function that identifies and processes videos nearing their expiration date.",
+            "dependencies": [
+              1
+            ],
+            "details": "Write a Cloud Function that queries the database for videos approaching their expiration date, updates their status accordingly, and prepares data for user notifications.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Integrate Firebase Cloud Messaging for Push Notifications",
+            "description": "Set up Firebase Cloud Messaging (FCM) to send push notifications to users about expiring videos.",
+            "dependencies": [
+              2
+            ],
+            "details": "Configure FCM to send notifications to users whose videos are nearing expiration, ensuring timely alerts to maintain user engagement.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Streak Management Logic",
+            "description": "Develop functionality to track and manage user engagement streaks based on video interactions.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create logic within the Cloud Function to monitor user interactions with videos, update streak counts, and handle streak-related notifications or rewards.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Set Up Monitoring and Logging",
+            "description": "Establish monitoring and logging to track the performance and execution of the Cloud Function.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Implement logging within the Cloud Function to capture execution details and set up monitoring tools to track function performance and error rates.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Test and Deploy the Cloud Function",
+            "description": "Conduct thorough testing of the Cloud Function and deploy it to the production environment.",
+            "dependencies": [
+              5
+            ],
+            "details": "Perform unit and integration testing to ensure the Cloud Function operates as expected, then deploy it to the production environment, ensuring all components are correctly configured and operational.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Create RAG Reply Assist Overlay System",
+        "description": "Build the AI-powered reply assist feature with overlay UI component and backend transcription/AI integration.",
+        "details": "1. Create RAG Overlay component:\n   - Semi-transparent card overlay on camera feed\n   - Top 15-20% of viewport positioning\n   - Dark background (rgba(58, 58, 58, 0.7))\n   - White text with Waffle Yellow title accent\n2. Implement overlay interactions:\n   - Slide-down animation on appearance (300ms)\n   - Tap-to-dismiss functionality\n   - Swipe-up gesture dismissal\n   - Re-summon icon after dismissal\n3. Build backend transcription pipeline:\n   - Cloud Function triggered on video upload\n   - Integrate speech-to-text service\n   - Store transcript in video document\n4. Create AI reply assist function:\n   - OpenAI API integration for keyword extraction\n   - Generate 3-5 relevant talking points\n   - Use last video's transcript as input\n5. Implement overlay content display:\n   - 'REPLYING TO:' title\n   - Bulleted list of AI suggestions\n   - Proper text sizing for glanceability\n6. Add error handling:\n   - Fallback when transcription fails\n   - Graceful AI service failures\n   - Loading states during processing",
+        "testStrategy": "Test overlay animations and interactions, verify transcription accuracy, test AI suggestion quality, validate error handling, test overlay positioning across device sizes",
+        "priority": "low",
+        "dependencies": [
+          1,
+          2,
+          4,
+          6,
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define Project Requirements and Objectives",
+            "description": "Establish the specific goals, functionalities, and performance criteria for the AI-powered reply assist feature.",
+            "dependencies": [],
+            "details": "Collaborate with stakeholders to gather requirements, identify target user scenarios, and outline the desired outcomes for the feature.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Design Overlay UI Component",
+            "description": "Create an intuitive overlay user interface that integrates seamlessly with the existing application.",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop wireframes and prototypes for the overlay UI, ensuring it adheres to best practices for overlay design, such as clarity, simplicity, and accessibility. Consider using prebuilt, customizable UI component modules to integrate features into the UI. ([cloud.google.com](https://cloud.google.com/agent-assist/docs/ui-modules?utm_source=openai))",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Develop Backend Transcription Service",
+            "description": "Implement a backend service capable of transcribing user input in real-time.",
+            "dependencies": [
+              1
+            ],
+            "details": "Set up a transcription service that processes audio input, converting it into text accurately and efficiently. Ensure the service can handle real-time data processing requirements. ([redresscompliance.com](https://redresscompliance.com/ai-customer-support-automation/?utm_source=openai))",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Integrate AI Model for Reply Suggestions",
+            "description": "Incorporate a machine learning model to generate contextually relevant reply suggestions based on transcribed input.",
+            "dependencies": [
+              3
+            ],
+            "details": "Select and train an AI model capable of understanding user intent and generating appropriate responses. Fine-tune the model using domain-specific data to enhance relevance. ([ema.co](https://www.ema.co/additional-blogs/addition-blogs/implementing-conversational-ai-for-customer-service?utm_source=openai))",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Real-Time Data Processing Pipeline",
+            "description": "Establish a pipeline that processes user input, transcribes it, and generates AI-driven reply suggestions in real-time.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Develop a robust data processing pipeline that ensures low latency and high accuracy in delivering reply suggestions to the user interface.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Integrate Backend Services with Overlay UI",
+            "description": "Connect the backend transcription and AI services with the overlay UI component to provide a seamless user experience.",
+            "dependencies": [
+              2,
+              5
+            ],
+            "details": "Ensure smooth communication between the frontend and backend components, allowing real-time display of AI-generated reply suggestions within the overlay UI.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Test and Optimize the Feature",
+            "description": "Conduct comprehensive testing to identify and resolve any issues, and optimize the feature for performance and user satisfaction.",
+            "dependencies": [
+              6
+            ],
+            "details": "Perform unit, integration, and user acceptance testing to ensure the feature meets all requirements. Gather user feedback to make necessary adjustments and improvements.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Optimize Performance and Implement Analytics",
+        "description": "Add performance optimizations for video lists, implement analytics tracking, and prepare for production deployment.",
+        "details": "1. Implement FlatList optimizations:\n   - removeClippedSubviews for memory management\n   - getItemLayout for fixed-height items\n   - windowSize optimization for large lists\n   - viewabilityConfig for video management\n2. Add video performance optimizations:\n   - Pause off-screen videos automatically\n   - Implement video preloading strategies\n   - Memory management for video components\n3. Implement analytics tracking:\n   - User engagement events (video creation, viewing)\n   - Streak milestone tracking\n   - Invite conversion tracking\n   - Error and crash reporting\n4. Add performance monitoring:\n   - App startup time tracking\n   - Video upload performance metrics\n   - Network request monitoring\n5. Implement error boundaries:\n   - Graceful error handling for video components\n   - Fallback UI for component crashes\n   - Error reporting to analytics\n6. Optimize bundle size:\n   - Code splitting for non-critical features\n   - Image optimization and compression\n   - Remove unused dependencies\n7. Add production readiness:\n   - Environment-specific configurations\n   - Security hardening\n   - Performance testing",
+        "testStrategy": "Test FlatList performance with large datasets, verify video memory management, validate analytics event firing, test error boundaries, measure app performance metrics",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          6,
+          7,
+          10
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Profile Application Performance",
+            "description": "Analyze the current performance of the video list feature to identify bottlenecks and areas for improvement.",
+            "dependencies": [],
+            "details": "Utilize performance profiling tools to measure load times, rendering speeds, and resource utilization for the video list component.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Performance Optimizations",
+            "description": "Apply targeted optimizations to enhance the performance of the video list feature based on profiling results.",
+            "dependencies": [
+              1
+            ],
+            "details": "Optimize code, implement caching strategies, and adjust database queries to reduce load times and improve responsiveness.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Select Analytics Platform",
+            "description": "Choose an appropriate analytics platform to track user interactions and performance metrics.",
+            "dependencies": [],
+            "details": "Evaluate platforms such as Google Analytics, Mixpanel, or Userpilot based on features, ease of integration, and compliance with privacy regulations.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Develop Analytics Implementation Plan",
+            "description": "Create a comprehensive plan detailing the events and metrics to be tracked within the application.",
+            "dependencies": [
+              3
+            ],
+            "details": "Define key performance indicators (KPIs), user actions to monitor, and data collection methods to align with business objectives.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Integrate Analytics Tracking",
+            "description": "Implement the chosen analytics platform into the application to monitor user behavior and performance.",
+            "dependencies": [
+              4
+            ],
+            "details": "Add tracking codes, set up event listeners, and configure the analytics dashboard to capture relevant data.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Prepare for Production Deployment",
+            "description": "Finalize all optimizations and integrations, and conduct thorough testing before deploying the application to production.",
+            "dependencies": [
+              2,
+              5
+            ],
+            "details": "Perform end-to-end testing, address any issues, and ensure the application meets performance and tracking requirements prior to release.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-24T20:14:13.350Z",
+      "updated": "2025-06-24T20:43:53.816Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
