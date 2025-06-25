@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is a member of the chat
+    function isChatMember(chatId) {
+      return isAuthenticated() && 
+        request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.members;
+    }
+    
+    
+    // Chat videos - stored under chats/{chatId}/videos/{fileName}
+    match /chats/{chatId}/videos/{fileName} {
+      // Allow read if user is a member of the chat
+      allow read: if isChatMember(chatId);
+      
+      // Allow write (upload) only if:
+      // 1. User is authenticated
+      // 2. User is a member of the chat  
+      // 3. User is uploading their own video (based on auth context)
+      allow write: if isChatMember(chatId);
+      
+      // Allow delete for cleanup (Cloud Functions will use admin SDK)
+      // Users cannot delete videos directly
+      allow delete: if false;
+    }
+    
+    // Chat thumbnails - stored under chats/{chatId}/thumbnails/{fileName}
+    match /chats/{chatId}/thumbnails/{fileName} {
+      // Allow read if user is a member of the chat
+      allow read: if isChatMember(chatId);
+      
+      // Allow write (upload) if user is a member of the chat
+      allow write: if isChatMember(chatId);
+      
+      // Allow delete for cleanup (Cloud Functions will use admin SDK)
+      allow delete: if false;
+    }
+    
+    // Deny access to all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -70,3 +70,7 @@ firebase-debug.*.log
 
 #cursor
 .cursor/mcp.json
+
+# Local Firebase config (contains real keys)
+GoogleService-Info.local.plist
+.firebaserc.local
