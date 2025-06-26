@@ -74,3 +74,5 @@ firebase-debug.*.log
 # Local Firebase config (contains real keys)
 GoogleService-Info.local.plist
 .firebaserc.local
+
+ios/

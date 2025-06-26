@@ -1,18 +1,21 @@
 // Waffle App Typography System
 // Based on PRD specifications: Poppins for headers, Inter for body text
+// Note: Using SpaceMono as fallback until custom fonts are added
 
 export const FontFamily = {
   // Header fonts - Poppins (friendly, bold sans-serif)
-  headerRegular: 'Poppins-Regular',
-  headerMedium: 'Poppins-Medium', 
-  headerBold: 'Poppins-Bold',
-  headerExtraBold: 'Poppins-ExtraBold',
+  // Temporarily using SpaceMono until custom fonts are added
+  headerRegular: 'SpaceMono',
+  headerMedium: 'SpaceMono', 
+  headerBold: 'SpaceMono',
+  headerExtraBold: 'SpaceMono',
   
   // Body fonts - Inter (clean, legible sans-serif)
-  bodyRegular: 'Inter-Regular',
-  bodyMedium: 'Inter-Medium',
-  bodySemiBold: 'Inter-SemiBold',
-  bodyBold: 'Inter-Bold',
+  // Temporarily using SpaceMono until custom fonts are added
+  bodyRegular: 'SpaceMono',
+  bodyMedium: 'SpaceMono',
+  bodySemiBold: 'SpaceMono',
+  bodyBold: 'SpaceMono',
   
   // Fallback system fonts
   systemRegular: 'System',

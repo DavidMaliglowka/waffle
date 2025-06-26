@@ -60,4 +60,4 @@ export const WaffleThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
       {children}
     </ThemeContext.Provider>
   );
-}; 
+};

@@ -1,13 +1,20 @@
-import { initializeApp } from '@react-native-firebase/app';
+// Firebase is automatically initialized from GoogleService-Info.plist on iOS
+// and google-services.json on Android with React Native Firebase
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
 
-// Firebase is automatically initialized from GoogleService-Info.plist
-// This file provides typed exports and configuration
-
-export { auth };
+// Export Firebase services
+export { auth, firestore, storage };
 
 // Firebase Auth instance
 export const firebaseAuth = auth();
+
+// Firestore instance
+export const firebaseFirestore = firestore();
+
+// Storage instance
+export const firebaseStorage = storage();
 
 // Auth configuration
 export const authConfig = {

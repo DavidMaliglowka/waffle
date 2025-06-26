@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, SafeAreaView, ScrollView, Switch, Alert } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { authService } from '@/lib/auth';
+import { router } from 'expo-router';
 
 export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
@@ -18,7 +19,8 @@ export default function SettingsScreen() {
           try {
             const result = await authService.signOut();
             if (result.success) {
-              // User will automatically be redirected to auth flow by _layout.tsx
+              // Navigate back to auth/login screen immediately
+              router.replace('/auth/phone' as any);
               console.log('Signed out successfully');
             } else {
               Alert.alert('Error', result.error || 'Failed to sign out');

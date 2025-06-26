@@ -47,12 +47,12 @@ export default function OnboardingScreen() {
       setCurrentPage(nextPage);
       scrollViewRef.current?.scrollTo({ x: nextPage * width, animated: true });
     } else {
-      router.push('/auth/login');
+      router.push('/auth/phone');
     }
   };
 
   const handleSkip = () => {
-    router.push('/auth/login');
+    router.push('/auth/phone');
   };
 
   const handleScroll = (event: any) => {

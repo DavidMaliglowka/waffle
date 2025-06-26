@@ -15,11 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.waffle.app",
+      "bundleIdentifier": "com.letswaffle.app",
       "googleServicesFile": "./GoogleService-Info.local.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "GN9HKU8VQ5"
     },
     "android": {
       "adaptiveIcon": {
@@ -36,6 +37,14 @@
     "plugins": [
       "expo-router",
       "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ],
       [
         "expo-build-properties",
         {

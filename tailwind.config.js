@@ -21,17 +21,16 @@ module.exports = {
         'text': '#3A3A3A',        // Dark Charcoal for text
       },
       fontFamily: {
-        // Header fonts - Poppins
-        'header': ['Poppins-Regular'],
-        'header-medium': ['Poppins-Medium'],
-        'header-bold': ['Poppins-Bold'],
-        'header-extrabold': ['Poppins-ExtraBold'],
+        // Using SpaceMono as fallback for all fonts until Poppins and Inter are added
+        'header': ['SpaceMono'],
+        'header-medium': ['SpaceMono'],
+        'header-bold': ['SpaceMono'],
+        'header-extrabold': ['SpaceMono'],
         
-        // Body fonts - Inter
-        'body': ['Inter-Regular'],
-        'body-medium': ['Inter-Medium'],
-        'body-semibold': ['Inter-SemiBold'],
-        'body-bold': ['Inter-Bold'],
+        'body': ['SpaceMono'],
+        'body-medium': ['SpaceMono'],
+        'body-semibold': ['SpaceMono'],
+        'body-bold': ['SpaceMono'],
       },
       spacing: {
         // Custom spacing scale
