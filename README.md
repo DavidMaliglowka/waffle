@@ -9,8 +9,8 @@ A React Native app for meaningful, asynchronous video conversations between clos
 ### Prerequisites
 - Node.js 18+ 
 - npm
-- iOS Simulator (for iOS development)
-- EAS CLI for building native apps
+- Xcode (with iOS Simulator)
+- CocoaPods (`sudo gem install cocoapods`)
 
 ### Installation
 
@@ -21,53 +21,65 @@ A React Native app for meaningful, asynchronous video conversations between clos
    npm install
    ```
 
-2. **Install EAS CLI globally:**
+2. **Install iOS dependencies:**
    ```bash
-   npm install -g eas-cli
-   eas login
+   cd ios && pod install && cd ..
    ```
 
-### Understanding Builds vs Development Server
+### Understanding Bare Workflow
 
-**Important:** Waffle uses React Native Firebase, which requires **native code**. This means you need to understand the difference between:
+**Important:** Waffle uses React Native Firebase and other native modules, requiring a **bare workflow**. This means:
 
-- **Development Server (`npx expo start`)**: Runs JavaScript only, works for web and basic testing
-- **Development Build**: Compiles native iOS/Android app with all native modules included
+- **Native code is included** in the repository (`ios/`)
+- **Direct native builds** instead of managed Expo builds
+- **Full access** to native iOS APIs and configurations
 
 ### Running the App
 
-#### Option 1: Web Development (Limited Features)
+#### Option 1: iOS Simulator (Recommended)
 ```bash
-npx expo start --web
+npm run ios
+# or directly: npx expo run:ios
 ```
-Opens in your browser at `http://localhost:8081`
+
+#### Option 2: Physical iOS Device
+```bash
+npm run ios:device
+# or directly: npx expo run:ios --device
+```
+
+#### Option 3: Web Development (Limited Features)
+```bash
+npm run web
+# or directly: npx expo start --web
+```
 
 **Note:** Firebase features won't work on web - this is only for UI development.
 
-#### Option 2: iOS Simulator (Full Features) - **Recommended**
-```bash
-# Build and install development build (first time only - takes ~5-10 minutes)
-eas build --platform ios --profile development
 
-# Start the development server
-npx expo start
-
-# Press 'i' to open iOS Simulator, or scan QR code on physical device
-```
-#### Can't tap anywhere? 
-**Developer Menu:** To toggle the developer menu in the iOS Simulator or on devices with reduced motion settings, press `m` in the terminal where the Expo development server is running.
-
-#### Option 3: Physical iOS Device
-1. Build the development build (same command as above)
-2. Install via the QR code or Expo dashboard link
-3. Start development server: `npx expo start`
-4. Scan QR code with your device
 
 ### Development Workflow
 
-1. **First time setup**: Run the development build command above
-2. **Daily development**: Just run `npx expo start` - the build is cached
-3. **When adding new native modules**: Rebuild with `eas build --platform ios --profile development`
+1. **First time setup**: Run `npm install` and `npm run pods`
+2. **Daily development**: Just run `npm run ios` or `npm start` then press 'i'
+3. **When adding new native modules**: Run `npm run pods` to reinstall CocoaPods
+4. **Clean builds**: Use `npm run clean` for full reset or `npm run clean:ios` for iOS only
+
+### Troubleshooting Commands
+
+```bash
+# Full clean and reinstall
+npm run clean
+
+# iOS-only clean
+npm run clean:ios
+
+# Reinstall CocoaPods only
+npm run pods
+
+# Open in Xcode
+npm run xcode
+```
 
 ## 🏗️ Project Structure
 
@@ -108,7 +120,24 @@ All Firebase services are configured and deployed. See `/functions` directory fo
 
 ## 📱 Building for Production
 
+### Using Xcode (Recommended)
 ```bash
+# Open project in Xcode
+npm run xcode
+
+# Then use Xcode to:
+# 1. Set build configuration to Release
+# 2. Select "Any iOS Device" or your connected device
+# 3. Product → Archive
+# 4. Upload to App Store Connect
+```
+
+### Using EAS Build (Alternative)
+```bash
+# Install EAS CLI if needed
+npm install -g eas-cli
+eas login
+
 # iOS App Store build
 eas build --platform ios --profile production
 
@@ -119,14 +148,22 @@ eas submit --platform ios
 ## 🛠️ Troubleshooting
 
 ### Build Issues
-- **Pod installation fails**: Make sure you have the `expo-build-properties` plugin configured in `app.json`
+- **Pod installation fails**: Run `npm run clean:ios` or `npm run pods`
+- **Build fails after adding native modules**: Run `npm run clean:ios` to reinstall pods
 - **Firebase errors**: Ensure `GoogleService-Info.plist` is in the project root
 - **Metro bundler issues**: Clear cache with `npx expo start --clear`
+- **Xcode build failures**: Try cleaning in Xcode (⌘+Shift+K) or `npm run clean`
 
 ### Development Server
 - **Can't connect to development server**: Make sure you're on the same WiFi network
 - **Hot reload not working**: Press `r` in the terminal to reload manually
-- **Developer menu not appearing**: Press `m` in the terminal
+- **Developer menu not appearing**: Press `m` in the terminal or shake device
+- **App crashes on launch**: Check console logs in Xcode or Metro terminal
+
+### Native Module Issues
+- **Module not found errors**: Run `npm run pods` to reinstall CocoaPods
+- **React Native Firebase issues**: Verify Firebase configuration and rebuild
+- **Camera permissions**: Check `Info.plist` and app permissions in device settings
 
 ### Firebase Configuration
 - **Authentication errors**: Check that Firebase Auth is enabled for Apple and Phone providers
@@ -137,9 +174,14 @@ eas submit --platform ios
 
 ```bash
 npm start              # Start Expo development server
-npm run web           # Start web development server
-npm run ios           # Start iOS development (requires build)
-npm run android       # Start Android development (requires build)
+npm run ios            # Build and run on iOS simulator
+npm run ios:device     # Build and run on physical iOS device
+npm run web            # Start web development server (limited features)
+npm test               # Run tests with Jest
+npm run clean          # Full clean: remove build artifacts, node_modules, reinstall
+npm run clean:ios      # iOS-only clean: remove build artifacts, reinstall pods
+npm run pods           # Reinstall CocoaPods dependencies
+npm run xcode          # Open project in Xcode
 ```
 
 ## 🔐 Environment Setup
@@ -179,7 +221,7 @@ For more details, see the Firebase configuration in `/lib` directory.
 
 ---
 
-**Note**: This app requires iOS 15.1+ and uses native Firebase modules. Web support is limited to UI development only.
+**Note**: This app uses a bare React Native workflow with native Firebase modules. iOS 15.1+ required. Web support is limited to UI development only.
 
 ## 📱 Features
 
@@ -193,14 +235,15 @@ For more details, see the Firebase configuration in `/lib` directory.
 
 ## 🔧 Troubleshooting
 
-### Build Issues
-- Ensure `expo-build-properties` is configured for React Native Firebase
-- Clear cache with `--clear-cache` flag
-- Check Firebase configuration files are present
+### Common Issues
+- Run `npm run clean` for persistent build issues
+- Use `npm run xcode` to debug in Xcode
+- Check Metro logs and Xcode console for detailed errors
 
-### Development Server
-- Use `npx expo start --clear` to clear Metro cache
-- For iOS simulator, ensure development build is installed first
+### iOS Simulator Tips
+- Use `npm run ios` for quick simulator builds
+- For device testing, use `npm run ios:device`
+- Developer menu: Press `m` in terminal or shake device
 
 ### Firebase Issues
 - Verify GoogleService-Info.plist is in project root
@@ -212,11 +255,17 @@ For more details, see the Firebase configuration in `/lib` directory.
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Native Firebase](https://rnfirebase.io/)
 - [Firebase Console](https://console.firebase.google.com/)
+- [CocoaPods Guide](https://cocoapods.org/)
 
 ## 🚀 Deployment
 
-Production builds are created with EAS Build and can be submitted to the App Store using EAS Submit.
+### Xcode (Recommended)
+1. Open project: `npm run xcode`
+2. Select "Any iOS Device" or connected device
+3. Set build configuration to "Release"
+4. Product → Archive → Upload to App Store Connect
 
+### EAS Build (Alternative)
 ```bash
 # Create production build
 eas build --platform ios --profile production

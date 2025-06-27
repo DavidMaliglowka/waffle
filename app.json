@@ -22,13 +22,7 @@
       },
       "appleTeamId": "GN9HKU8VQ5"
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
+
     "web": {
       "bundler": "metro",
       "output": "static",
