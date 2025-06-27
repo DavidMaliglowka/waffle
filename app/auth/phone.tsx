@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { authService } from '@/lib/auth';
+import { AntDesign } from '@expo/vector-icons';
 // Use fallback for expo-localization until native module is properly configured
 let Localization: any = null;
 try {
@@ -95,7 +96,8 @@ export default function PhoneScreen() {
       const result = await authService.signInWithApple();
       if (result.success) {
         console.log('🧇 Apple Sign-In successful');
-        router.replace('/(tabs)' as any);
+        // Navigation will be handled by _layout.tsx auth state listener
+        // router.replace('/(tabs)/chats');
       } else {
         Alert.alert('Sign In Failed', result.error || 'Apple Sign-In failed');
       }
@@ -156,7 +158,8 @@ export default function PhoneScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 justify-center px-8">
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View className="flex-1 justify-center px-8">
           {/* Header */}
           <View className="items-center mb-12">
             <Text className="text-6xl mb-4">🧇</Text>
@@ -186,7 +189,6 @@ export default function PhoneScreen() {
                 value={formatDisplayNumber(phoneNumber)}
                 onChangeText={handlePhoneChange}
                 keyboardType="phone-pad"
-                autoFocus
                 maxLength={20}
               />
             </View>
@@ -228,8 +230,16 @@ export default function PhoneScreen() {
             disabled={appleLoading}
             className="bg-black py-4 px-6 rounded-xl flex-row items-center justify-center"
           >
+            {!appleLoading && (
+              <AntDesign 
+                name="apple1" 
+                size={20} 
+                color="white" 
+                style={{ marginRight: 8 }} 
+              />
+            )}
             <Text className="text-white font-semibold text-lg">
-              {appleLoading ? 'Signing in...' : '🍎 Continue with Apple'}
+              {appleLoading ? 'Signing in...' : 'Continue with Apple'}
             </Text>
           </TouchableOpacity>
 
@@ -237,7 +247,8 @@ export default function PhoneScreen() {
           <Text className="text-gray-500 text-sm text-center mt-8 leading-5">
             By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
-        </View>
+          </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

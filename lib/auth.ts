@@ -146,6 +146,14 @@ export class AuthService {
   // Apple Sign-In implementation
   async signInWithApple(): Promise<AuthResult> {
     try {
+      // Check if Apple Sign-In is available on this device
+      if (!appleAuth.isSupported) {
+        return {
+          success: false,
+          error: 'Apple Sign-In is not supported on this device.',
+        };
+      }
+
       // Start the sign-in request
       const appleAuthRequestResponse = await appleAuth.performRequest({
         requestedOperation: appleAuth.Operation.LOGIN,
@@ -172,16 +180,44 @@ export class AuthService {
       console.error('Apple Sign-In error:', error);
       
       // Handle specific Apple Sign-In errors
-      if (error.code === '1000') {
+      if (error.code === appleAuth.Error.CANCELED) {
         return {
           success: false,
-          error: 'Apple Sign-In requires a paid Apple Developer Program membership ($99/year). This feature will be available once we upgrade our developer account.'
+          error: 'Apple Sign-In was canceled',
+        };
+      }
+      
+      if (error.code === appleAuth.Error.FAILED) {
+        return {
+          success: false,
+          error: 'Apple Sign-In failed. Please try again.',
+        };
+      }
+      
+      if (error.code === appleAuth.Error.INVALID_RESPONSE) {
+        return {
+          success: false,
+          error: 'Invalid response from Apple. Please try again.',
+        };
+      }
+      
+      if (error.code === appleAuth.Error.NOT_HANDLED) {
+        return {
+          success: false,
+          error: 'Apple Sign-In not handled. Please try again.',
+        };
+      }
+      
+      if (error.code === appleAuth.Error.UNKNOWN) {
+        return {
+          success: false,
+          error: 'An unknown error occurred with Apple Sign-In.',
         };
       }
       
       return {
         success: false,
-        error: error.message || 'Apple Sign-In failed',
+        error: error.message || 'Apple Sign-In failed. Please try again.',
       };
     }
   }

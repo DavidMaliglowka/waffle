@@ -142,14 +142,25 @@ function RootLayoutNav({ user, authLoading }: { user: any; authLoading: boolean 
   const colorScheme = useColorScheme();
   const segments = useSegments();
 
-  // Redirect unauthenticated users away from protected screens
+  // Handle navigation based on auth state
   useEffect(() => {
-    if (!authLoading && !user) {
-      const first = segments[0] || '';
-      const allowed = ['auth', 'onboarding', '', '__']; // paths that are part of auth/onboarding flow
-      if (!allowed.includes(first)) {
-        console.log('🧇 Unauthenticated access to protected route – redirecting to login');
-        router.replace('/auth/phone');
+    if (!authLoading) {
+      const first = segments[0];
+      
+      if (!user) {
+        // User not authenticated - redirect to auth flow if on protected routes
+        const allowed = ['auth', 'onboarding', '__']; 
+        if (first && !allowed.includes(first)) {
+          console.log('🧇 Unauthenticated access to protected route – redirecting to login');
+          router.replace('/auth/phone');
+        }
+      } else {
+        // User is authenticated - redirect to main app if on auth routes or no route
+        const authRoutes = ['auth', 'onboarding'];
+        if (!first || authRoutes.includes(first)) {
+          console.log('🧇 Authenticated user on auth route – redirecting to main app');
+          router.replace('/(tabs)/chats');
+        }
       }
     }
   }, [user, authLoading, segments]);

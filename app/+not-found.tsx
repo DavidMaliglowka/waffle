@@ -1,14 +1,15 @@
 import { Stack, useRouter } from 'expo-router';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { useEffect, useRef } from 'react';
+import { authService } from '@/lib/auth';
 
 export default function NotFoundScreen() {
   const router = useRouter();
   const hasRedirected = useRef(false);
 
-  // Auto-redirect for Firebase reCAPTCHA flows with proper delay
+  // Auto-redirect based on auth state with proper delay
   useEffect(() => {
-    console.log('🧇 Not-found screen loaded - checking for Firebase reCAPTCHA flow...');
+    console.log('🧇 Not-found screen loaded - checking auth state and redirecting...');
     
     // Prevent multiple redirects
     if (hasRedirected.current) {
@@ -16,21 +17,33 @@ export default function NotFoundScreen() {
       return;
     }
     
-    // If this appears during auth flow, auto-navigate back after longer delay
+    // Check auth state and redirect appropriately
     const timer = setTimeout(() => {
       if (!hasRedirected.current) {
-        console.log('🧇 Auto-redirecting from not-found to auth...');
-        hasRedirected.current = true;
-        router.replace('/auth/phone');
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          console.log('🧇 Auto-redirecting authenticated user from not-found to main app...');
+          hasRedirected.current = true;
+          router.replace('/(tabs)/chats');
+        } else {
+          console.log('🧇 Auto-redirecting unauthenticated user from not-found to auth...');
+          hasRedirected.current = true;
+          router.replace('/auth/phone');
+        }
       }
-    }, 2000); // 2 second delay to prevent immediate loops
+    }, 1500); // 1.5 second delay to prevent immediate loops
 
     return () => clearTimeout(timer);
   }, [router]);
 
   const handleManualRedirect = () => {
     hasRedirected.current = true;
-    router.replace('/auth/phone');
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      router.replace('/(tabs)/chats');
+    } else {
+      router.replace('/auth/phone');
+    }
   };
 
   const handleOnboardingRedirect = () => {
@@ -49,7 +62,7 @@ export default function NotFoundScreen() {
           style={styles.button}
           onPress={handleManualRedirect}
         >
-          <Text style={styles.buttonText}>Back to Login</Text>
+          <Text style={styles.buttonText}>Go to App</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
