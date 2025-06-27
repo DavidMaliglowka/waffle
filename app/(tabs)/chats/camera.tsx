@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, SafeAreaView, Pressable, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Camera, useCameraDevices, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
+import { Video, ResizeMode } from 'expo-av';
 import { Button } from '@/components/ui/Button';
 import { compressVideoForUpload, videoCompressionService } from '@/lib/videoCompression';
 import { uploadVideoToChat, UploadProgress } from '@/lib/storage';
@@ -16,6 +17,8 @@ interface RecordingState {
   compressionProgress: number;
   isUploading: boolean;
   uploadProgress: number;
+  recordedVideoPath: string | null;
+  showReplay: boolean;
 }
 
 export default function CameraModal() {
@@ -36,10 +39,15 @@ export default function CameraModal() {
     compressionProgress: 0,
     isUploading: false,
     uploadProgress: 0,
+    recordedVideoPath: null,
+    showReplay: false,
   });
   
   // Timer for recording duration
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Ref to track if we should process the video (to avoid stale closure issues)
+  const shouldProcessVideoRef = useRef<boolean>(false);
   
   // Camera settings
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
@@ -176,10 +184,22 @@ export default function CameraModal() {
         onRecordingFinished: async (video) => {
           console.log('🧇 Video recorded:', video);
           
-          // Process video if recording was saved
-          if (recordingState.isProcessing) {
+          // Store the video path for replay
+          setRecordingState(prev => ({
+            ...prev,
+            recordedVideoPath: video.path
+          }));
+          
+          // Process video if recording was saved (using ref to avoid stale closure)
+          if (shouldProcessVideoRef.current) {
             const finalDuration = recordingState.duration;
             await handleVideoProcessing(video.path, finalDuration);
+          } else {
+            // Show replay option if video was not processed
+            setRecordingState(prev => ({
+              ...prev,
+              showReplay: true
+            }));
           }
         },
         onRecordingError: (error) => {
@@ -219,6 +239,9 @@ export default function CameraModal() {
         intervalRef.current = null;
       }
 
+      // Set ref to track if we should process the video
+      shouldProcessVideoRef.current = saveVideo;
+
       // Update state to indicate we're stopping
       setRecordingState(prev => ({ 
         ...prev, 
@@ -239,7 +262,7 @@ export default function CameraModal() {
         setIsActive(true);
       }, 500);
 
-      if (!saveVideo) {
+              if (!saveVideo) {
         // Reset state completely for cancel
         setRecordingState(prev => ({
           ...prev,
@@ -248,7 +271,9 @@ export default function CameraModal() {
           isProcessing: false,
           compressionProgress: 0,
           isUploading: false,
-          uploadProgress: 0
+          uploadProgress: 0,
+          recordedVideoPath: null,
+          showReplay: false
         }));
       }
 
@@ -266,13 +291,37 @@ export default function CameraModal() {
         duration: 0,
         compressionProgress: 0,
         isUploading: false,
-        uploadProgress: 0
+        uploadProgress: 0,
+        recordedVideoPath: null,
+        showReplay: false
       }));
     }
   };
 
   const toggleCameraFacing = () => {
     setCameraPosition(current => (current === 'back' ? 'front' : 'back'));
+  };
+
+  const handleSendVideo = async () => {
+    if (!recordingState.recordedVideoPath) return;
+    
+    setRecordingState(prev => ({
+      ...prev,
+      showReplay: false,
+      isProcessing: true,
+      compressionProgress: 0
+    }));
+
+    await handleVideoProcessing(recordingState.recordedVideoPath, recordingState.duration);
+  };
+
+  const handleRetakeVideo = () => {
+    setRecordingState(prev => ({
+      ...prev,
+      recordedVideoPath: null,
+      showReplay: false,
+      duration: 0
+    }));
   };
 
   const handleVideoProcessing = async (videoPath: string, durationSeconds: number) => {
@@ -358,6 +407,8 @@ export default function CameraModal() {
       compressionProgress: 0,
       isUploading: false,
       uploadProgress: 0,
+      recordedVideoPath: null,
+      showReplay: false,
     });
   };
 
@@ -408,16 +459,26 @@ export default function CameraModal() {
 
       {/* Camera View */}
       <View className="flex-1 mx-4 mb-4 rounded-2xl overflow-hidden">
-        <Camera
-          ref={cameraRef}
-          style={{ flex: 1 }}
-          device={device}
-          isActive={isActive && !recordingState.isProcessing}
-          video={true}
-          audio={true}
-        >
-          {/* Recording Status Overlay */}
-          {recordingState.isRecording && (
+        {recordingState.showReplay && recordingState.recordedVideoPath ? (
+          <Video
+            source={{ uri: recordingState.recordedVideoPath }}
+            style={{ flex: 1 }}
+            useNativeControls
+            resizeMode={ResizeMode.COVER}
+            isLooping
+            shouldPlay
+          />
+        ) : (
+          <Camera
+            ref={cameraRef}
+            style={{ flex: 1 }}
+            device={device}
+            isActive={isActive && !recordingState.isProcessing && !recordingState.showReplay}
+            video={true}
+            audio={true}
+          >
+            {/* Recording Status Overlay */}
+            {recordingState.isRecording && (
             <>
               {/* Recording indicator */}
               <View className="absolute top-4 left-4 right-4 justify-center items-center">
@@ -471,12 +532,70 @@ export default function CameraModal() {
               )}
             </View>
           )}
-        </Camera>
+          </Camera>
+        )}
       </View>
 
       {/* Bottom Controls */}
       <View className="px-6 pb-8">
-        {!recordingState.isRecording ? (
+        {recordingState.isRecording ? (
+          <>
+            {/* Recording Controls */}
+            <View className="flex-row justify-center space-x-8">
+              <Button
+                title="Cancel"
+                variant="outline"
+                size="large"
+                onPress={() => handleStopRecording(false)}
+                className="border-white bg-white/10"
+              />
+              
+              <Button
+                title="Send Waffle 🧇"
+                variant="primary"
+                size="large"
+                onPress={() => handleStopRecording(true)}
+              />
+            </View>
+
+            <Text className="text-white/70 font-body text-sm text-center mt-4">
+              Tap "Send Waffle" when you're done recording
+            </Text>
+          </>
+        ) : recordingState.showReplay ? (
+          <>
+            {/* Replay Controls */}
+            <View className="mb-6">
+              <Text className="text-white font-header text-xl text-center mb-2">
+                How does it look?
+              </Text>
+              <Text className="text-white/70 font-body text-base text-center">
+                Review your waffle and decide if you want to send it or record again.
+              </Text>
+            </View>
+
+            <View className="flex-row justify-center space-x-4">
+              <Button
+                title="Retake"
+                variant="outline"
+                size="large"
+                onPress={handleRetakeVideo}
+                className="border-white bg-white/10"
+              />
+              
+              <Button
+                title="Send Waffle 🧇"
+                variant="primary"
+                size="large"
+                onPress={handleSendVideo}
+              />
+            </View>
+
+            <Text className="text-white/70 font-body text-sm text-center mt-4">
+              Duration: {formatTime(recordingState.duration)}
+            </Text>
+          </>
+        ) : (
           <>
             {/* Recording Instructions */}
             <View className="mb-6">
@@ -505,30 +624,6 @@ export default function CameraModal() {
                 Tap to start recording
               </Text>
             </View>
-          </>
-        ) : (
-          <>
-            {/* Recording Controls */}
-            <View className="flex-row justify-center space-x-8">
-              <Button
-                title="Cancel"
-                variant="outline"
-                size="large"
-                onPress={() => handleStopRecording(false)}
-                className="border-white bg-white/10"
-              />
-              
-              <Button
-                title="Send Waffle 🧇"
-                variant="primary"
-                size="large"
-                onPress={() => handleStopRecording(true)}
-              />
-            </View>
-
-            <Text className="text-white/70 font-body text-sm text-center mt-4">
-              Tap "Send Waffle" when you're done recording
-            </Text>
           </>
         )}
       </View>
