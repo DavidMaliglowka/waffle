@@ -38,6 +38,14 @@
       "expo-router",
       "expo-dev-client",
       [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Allow Waffle to access your camera to record video messages",
+          "microphonePermissionText": "Allow Waffle to record audio for your video messages",
+          "enableFrameProcessors": false
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
@@ -54,7 +62,8 @@
           }
         }
       ],
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "react-native-compressor"
     ],
     "experiments": {
       "typedRoutes": true

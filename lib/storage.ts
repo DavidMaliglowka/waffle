@@ -198,6 +198,20 @@ export class StorageService {
       throw error;
     }
   }
+
+  // Test Firebase Storage connection
+  async testStorageConnection(): Promise<boolean> {
+    try {
+      // Simple test - try to get the root reference
+      const rootRef = storage().ref();
+      await rootRef.listAll();
+      console.log('🧇 Firebase Storage connection test: SUCCESS');
+      return true;
+    } catch (error) {
+      console.error('🧇 Firebase Storage connection test failed:', error);
+      return false;
+    }
+  }
 }
 
 // Export singleton instance
