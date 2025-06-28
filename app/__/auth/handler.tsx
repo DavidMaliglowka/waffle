@@ -21,9 +21,18 @@ export default function FirebaseAuthCallback() {
         console.log('🧇 Redirecting to code verification screen');
         router.replace('/auth/code' as any);
       } else {
-        // No phone number stored, go back to phone entry
-        console.log('🧇 No phone number found, redirecting to phone screen');
-        router.replace('/auth/phone' as any);
+        // No phone number stored - check if this is an Apple Sign-In user
+        // (They should go to phone collection, not regular phone screen)
+        const { authService } = require('@/lib/auth');
+        const needsPhoneCollection = authService.needsPhoneCollection();
+        
+        if (needsPhoneCollection) {
+          console.log('🧇 Apple Sign-In user detected, redirecting to phone collection');
+          router.replace('/auth/phone-collection' as any);
+        } else {
+          console.log('🧇 No phone number found, redirecting to phone screen');
+          router.replace('/auth/phone' as any);
+        }
       }
     }, 500); // Small delay to ensure Firebase state is ready
   }, []);

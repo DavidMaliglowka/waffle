@@ -54,7 +54,15 @@ export default function CodeScreen() {
         delete (global as any).__smsConfirmation;
         delete (global as any).__wafflePhone;
         delete (global as any).__lastSMSSendTime;
-        router.replace('/(tabs)/chats');
+        
+        // Don't manually redirect - let the navigation logic in _layout.tsx handle it
+        // after the auth state updates with the linked phone number
+        console.log('🧇 Phone verification successful, waiting for navigation logic to redirect');
+        
+        // Small delay to ensure Firebase user object updates with linked phone number
+        setTimeout(() => {
+          console.log('🧇 Phone linking should now be complete, navigation logic will handle redirect');
+        }, 500);
       } else {
         Alert.alert('Verification Failed', result.error || 'The verification code is incorrect. Please try again.');
         setCode(''); // Clear the code field for retry

@@ -154,14 +154,25 @@ function RootLayoutNav({ user, authLoading }: { user: any; authLoading: boolean 
           console.log('🧇 Unauthenticated access to protected route – redirecting to login');
           router.replace('/auth/phone');
         }
-      } else {
-        // User is authenticated - redirect to main app if on auth routes or no route
-        const authRoutes = ['auth', 'onboarding'];
-        if (!first || authRoutes.includes(first)) {
-          console.log('🧇 Authenticated user on auth route – redirecting to main app');
-          router.replace('/(tabs)/chats');
+              } else {
+          // User is authenticated - check if they need phone collection
+          const needsPhone = authService.needsPhoneCollection();
+          const authRoutes = ['auth', 'onboarding'];
+          const currentPath = segments.join('/');
+          
+          // Don't redirect if user is already in the auth flow (phone collection or code verification)
+          const inAuthFlow = currentPath === 'auth/phone-collection' || currentPath === 'auth/code';
+          
+          if (needsPhone && !inAuthFlow && first !== 'auth') {
+            // Apple Sign-In user without phone number - redirect to phone collection
+            console.log('🧇 Apple Sign-In user needs phone collection');
+            router.replace('/auth/phone-collection');
+          } else if (!needsPhone && (!first || authRoutes.includes(first))) {
+            // User has all required info - redirect to main app
+            console.log('🧇 Authenticated user with complete profile – redirecting to main app');
+            router.replace('/(tabs)/chats');
+          }
         }
-      }
     }
   }, [user, authLoading, segments]);
 

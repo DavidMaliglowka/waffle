@@ -362,26 +362,75 @@ export class AuthService {
 
       console.log('🔥 Firebase Phone Auth - Verifying code');
 
-      // Create a timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Code verification timed out')), 15000); // 15 second timeout
-      });
+      // Check if user is already signed in with another provider (like Apple)
+      const currentUser = auth().currentUser;
+      const isAppleUser = currentUser && currentUser.providerData.some(p => p.providerId === 'apple.com');
 
-      // Race between Firebase verification and timeout
-      const userCredential = await Promise.race([
-        confirmation.confirm(code),
-        timeoutPromise
-      ]);
+      if (isAppleUser) {
+        // User is signed in with Apple - we need to link the phone credential instead of signing in
+        console.log('🔥 Firebase Phone Auth - Linking phone to existing Apple account');
+        
+        try {
+          // Get phone credential without signing in
+          const phoneCredential = auth.PhoneAuthProvider.credential(confirmation.verificationId, code);
+          
+          // Link phone credential to existing Apple account
+          const linkResult = await currentUser.linkWithCredential(phoneCredential);
+          console.log('🔥 Firebase Phone Auth - Phone number successfully linked to Apple account');
 
-      console.log('🔥 Firebase Phone Auth - Code verified successfully');
+          // Clear the stored confirmation
+          delete (global as any).__smsConfirmation;
 
-      // Clear the stored confirmation
-      delete (global as any).__smsConfirmation;
+          return {
+            success: true,
+            user: this.formatUser(linkResult.user),
+          };
+          
+        } catch (linkError: any) {
+          console.error('🔥 Firebase Phone Auth - Link Error:', linkError);
+          
+          if (linkError.code === 'auth/credential-already-in-use') {
+            return {
+              success: false,
+              error: 'This phone number is already associated with another account.'
+            };
+          } else if (linkError.code === 'auth/invalid-verification-code') {
+            return {
+              success: false,
+              error: 'Invalid verification code. Please check the code and try again.'
+            };
+          }
+          
+          return {
+            success: false,
+            error: linkError.message || 'Failed to link phone number to your account.'
+          };
+        }
+      } else {
+        // No existing user or phone-only authentication - proceed with normal sign-in
+        console.log('🔥 Firebase Phone Auth - Normal phone sign-in');
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Code verification timed out')), 15000);
+        });
 
-      return {
-        success: true,
-        user: this.formatUser(userCredential.user),
-      };
+        // Race between Firebase verification and timeout
+        const userCredential = await Promise.race([
+          confirmation.confirm(code),
+          timeoutPromise
+        ]);
+
+        console.log('🔥 Firebase Phone Auth - Code verified successfully');
+
+        // Clear the stored confirmation
+        delete (global as any).__smsConfirmation;
+
+        return {
+          success: true,
+          user: this.formatUser(userCredential.user),
+        };
+      }
     } catch (error: any) {
       console.error('🔥 Firebase Phone Auth Verification Error:', error);
       
@@ -443,14 +492,31 @@ export class AuthService {
 
   // Format Firebase user to our AuthUser type
   private formatUser(firebaseUser: any): AuthUser {
+    // For linked accounts, prioritize Apple provider as primary
+    const hasApple = firebaseUser.providerData.some((p: any) => p.providerId === 'apple.com');
+    const primaryProviderId = hasApple ? 'apple.com' : (firebaseUser.providerData[0]?.providerId || 'phone');
+    
     return {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
       displayName: firebaseUser.displayName,
       phoneNumber: firebaseUser.phoneNumber,
       photoURL: firebaseUser.photoURL,
-      providerId: firebaseUser.providerData[0]?.providerId || 'phone',
+      providerId: primaryProviderId,
     };
+  }
+
+  // Check if user needs phone number collection (for Apple Sign-In users)
+  needsPhoneCollection(): boolean {
+    const firebaseUser = auth().currentUser;
+    if (!firebaseUser) return false;
+    
+    // Check if user has Apple provider and no phone number
+    const hasAppleProvider = firebaseUser.providerData.some(p => p.providerId === 'apple.com');
+    const hasPhoneNumber = !!firebaseUser.phoneNumber;
+    
+    // Apple Sign-In users without phone numbers need collection
+    return hasAppleProvider && !hasPhoneNumber;
   }
 
   // Check if Apple Sign-In is available
