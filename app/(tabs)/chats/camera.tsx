@@ -6,6 +6,8 @@ import { Video, ResizeMode } from 'expo-av';
 import { Button } from '@/components/ui/Button';
 import { compressVideoForUpload, videoCompressionService } from '@/lib/videoCompression';
 import { uploadVideoToChat, UploadProgress } from '@/lib/storage';
+import { videoUploadErrorHandler, ErrorType, VideoUploadError } from '@/lib/videoUploadErrorHandler';
+import { useAuthState } from '@/lib/auth';
 
 export const options = { presentation: 'modal', headerShown: false };
 
@@ -60,6 +62,8 @@ export default function CameraModal() {
 
   // Constants
   const MAX_DURATION = 5 * 60; // 5 minutes in seconds
+
+  const { user: authUser } = useAuthState();
 
   useEffect(() => {
     // Cleanup timer and camera on unmount
@@ -325,76 +329,204 @@ export default function CameraModal() {
   };
 
   const handleVideoProcessing = async (videoPath: string, durationSeconds: number) => {
-    try {
-      console.log('🧇 Starting video processing...');
+    console.log('🧇 Starting video processing...');
+    
+    // Check network connectivity first
+    const networkInfo = await videoUploadErrorHandler.checkNetworkConnectivity();
+    console.log('🧇 Network info:', networkInfo);
+    
+    // Show network warning if needed
+    if (videoUploadErrorHandler.shouldShowNetworkWarning(networkInfo)) {
+      const warningMessage = videoUploadErrorHandler.getNetworkWarningMessage(networkInfo);
       
-      // Update UI to show compression in progress
-      setRecordingState(prev => ({ 
-        ...prev, 
-        isProcessing: true, 
-        compressionProgress: 0 
-      }));
-
-      // Compress the video
-      const compressionResult = await compressVideoForUpload(videoPath, durationSeconds);
+      if (!networkInfo.isConnected) {
+        Alert.alert(
+          'No Internet Connection',
+          warningMessage,
+          [
+            { text: 'Try Again', onPress: () => handleVideoProcessing(videoPath, durationSeconds) },
+            { text: 'Cancel', onPress: () => resetRecordingState() }
+          ]
+        );
+        return;
+      }
       
-      console.log('🧇 Video compression completed:', compressionResult);
+      // Show cellular data warning but allow continuation
+      if (networkInfo.type === 'cellular') {
+        Alert.alert(
+          'Cellular Data Warning',
+          warningMessage + '\n\nDo you want to continue?',
+          [
+            { text: 'Continue', onPress: () => continueProcessing() },
+            { text: 'Cancel', onPress: () => resetRecordingState() }
+          ]
+        );
+        return;
+      }
+    }
+    
+    await continueProcessing();
 
-      // Update compression progress to 100%
-      setRecordingState(prev => ({ 
-        ...prev, 
-        compressionProgress: 100,
-        isUploading: true,
-        uploadProgress: 0
-      }));
+    async function continueProcessing() {
+      try {
+        // Update UI to show compression in progress
+        setRecordingState(prev => ({ 
+          ...prev, 
+          isProcessing: true, 
+          compressionProgress: 0 
+        }));
 
-      console.log('🧇 Starting Firebase Storage upload...');
+        // Compress the video with retry logic
+        const compressionResult = await videoUploadErrorHandler.withRetry(
+          () => compressVideoForUpload(videoPath, durationSeconds),
+          'video-compression',
+          { maxAttempts: 2, baseDelay: 1000, maxDelay: 5000, backoffFactor: 2 },
+          (attempt, error) => {
+            console.log(`🧇 Compression retry ${attempt}:`, error.message);
+            setRecordingState(prev => ({ 
+              ...prev, 
+              compressionProgress: Math.max(prev.compressionProgress - 20, 0) // Slight rollback for retry
+            }));
+          }
+        );
+        
+        console.log('🧇 Video compression completed:', compressionResult);
 
-      // Upload to Firebase Storage with progress tracking
-      // For now, we'll use dummy chat data - this will be replaced with real chat context
-      const uploadResult = await uploadVideoToChat({
-        chatId: 'demo-chat-id', // TODO: Get from chat context
-        senderId: 'current-user-id', // TODO: Get from auth context
-        recipientId: 'recipient-user-id', // TODO: Get from chat context
-        localVideoPath: compressionResult.uri,
-        duration: durationSeconds,
-        onProgress: (progress: UploadProgress) => {
-          setRecordingState(prev => ({
-            ...prev,
-            uploadProgress: progress.progress
-          }));
-          console.log('🧇 Upload progress:', progress.progress + '%');
+        // Validate compressed file size
+        if (!videoUploadErrorHandler.validateFileSize(compressionResult.compressedSize, 100)) {
+          throw new Error('Compressed video file is too large for upload (>100MB)');
         }
-      });
 
-      console.log('🧇 Upload completed:', uploadResult);
+        // Update compression progress to 100%
+        setRecordingState(prev => ({ 
+          ...prev, 
+          compressionProgress: 100,
+          isUploading: true,
+          uploadProgress: 0
+        }));
 
-      // Update state to show completion
-      setRecordingState(prev => ({ 
-        ...prev, 
-        isUploading: false,
-        uploadProgress: 100
-      }));
+        console.log('🧇 Starting Firebase Storage upload...');
 
-      // Show success message
-      Alert.alert(
-        'Waffle Sent! 🧇',
-        `Your video has been compressed (${compressionResult.compressionRatio.toFixed(1)}x smaller) and uploaded successfully!`,
-        [
-          { text: 'Send Another', onPress: () => resetRecordingState() },
-          { text: 'Back to Chat', onPress: () => router.back() }
-        ]
-      );
+        // Ensure test chat exists in Firestore for Storage rules
+        let testChatId: string = `test-chat-${authUser?.uid || 'default'}`;
+        if (authUser?.uid) {
+          try {
+            const { FirestoreService } = await import('@/lib/firestore');
+            const firestoreService = FirestoreService.getInstance();
+            
+            // Create test chat if it doesn't exist
+            const existingChat = await firestoreService.getChat(testChatId).catch(() => null);
+            if (!existingChat) {
+              console.log('🧇 Creating test chat for upload testing');
+              
+              // Create chat with proper member IDs
+              const chatId = await firestoreService.createChat([authUser.uid, 'test-recipient']);
+              console.log('🧇 Test chat created successfully with ID:', chatId);
+              
+              // Update the testChatId to use the generated ID
+              testChatId = chatId;
+            }
+          } catch (error) {
+            console.error('🧇 Error creating test chat:', error);
+          }
+        }
 
-    } catch (error) {
-      console.error('🧇 Video processing failed:', error);
-      Alert.alert(
-        'Processing Failed',
-        'Failed to process your video. Please try recording again.',
-        [
-          { text: 'Try Again', onPress: () => resetRecordingState() }
-        ]
-      );
+        // Upload to Firebase Storage with retry logic and progress tracking
+        const uploadResult = await videoUploadErrorHandler.withRetry(
+          () => uploadVideoToChat({
+            chatId: testChatId, // Use the created/existing test chat
+            senderId: authUser?.uid || 'unknown-user',
+            recipientId: 'test-recipient', // Dummy recipient for now
+            localVideoPath: compressionResult.uri,
+            duration: durationSeconds,
+            onProgress: (progress: UploadProgress) => {
+              setRecordingState(prev => ({
+                ...prev,
+                uploadProgress: progress.progress
+              }));
+              console.log('🧇 Upload progress:', progress.progress + '%');
+            }
+          }),
+          'video-upload',
+          { maxAttempts: 3, baseDelay: 2000, maxDelay: 30000, backoffFactor: 2 },
+          (attempt, error) => {
+            console.log(`🧇 Upload retry ${attempt}:`, error.message);
+            setRecordingState(prev => ({ 
+              ...prev, 
+              uploadProgress: Math.max(prev.uploadProgress - 25, 0) // Rollback progress for retry
+            }));
+          }
+        );
+
+        console.log('🧇 Upload completed:', uploadResult);
+
+        // Update state to show completion
+        setRecordingState(prev => ({ 
+          ...prev, 
+          isUploading: false,
+          uploadProgress: 100
+        }));
+
+        // Reset retry counts on success
+        videoUploadErrorHandler.resetRetryCount('video-compression');
+        videoUploadErrorHandler.resetRetryCount('video-upload');
+
+        // Show success message
+        Alert.alert(
+          'Waffle Sent! 🧇',
+          `Your video has been compressed (${compressionResult.compressionRatio.toFixed(1)}x smaller) and uploaded successfully!`,
+          [
+            { text: 'Send Another', onPress: () => resetRecordingState() },
+            { text: 'Back to Chat', onPress: () => router.back() }
+          ]
+        );
+
+      } catch (error) {
+        console.error('🧇 Video processing failed:', error);
+        
+        // Use error handler to categorize and show appropriate dialog
+        const videoError = error instanceof Error && error.message.includes('type') 
+          ? error as any as VideoUploadError 
+          : videoUploadErrorHandler.categorizeError(error);
+        
+        // Reset processing state
+        setRecordingState(prev => ({
+          ...prev,
+          isProcessing: false,
+          isUploading: false,
+          compressionProgress: 0,
+          uploadProgress: 0
+        }));
+        
+        // Show error dialog with appropriate actions
+        videoUploadErrorHandler.showErrorDialog(
+          videoError,
+          // Retry action
+          () => handleVideoProcessing(videoPath, durationSeconds),
+          // Cancel action
+          () => resetRecordingState(),
+          // Alternative action based on error type
+          () => {
+            switch (videoError.type) {
+              case ErrorType.NETWORK_ERROR:
+                // Show network settings or try again
+                handleVideoProcessing(videoPath, durationSeconds);
+                break;
+              case ErrorType.FILE_ERROR:
+              case ErrorType.COMPRESSION_ERROR:
+                // Record new video
+                resetRecordingState();
+                break;
+              case ErrorType.UPLOAD_ERROR:
+                // Try upload again with different settings
+                handleVideoProcessing(videoPath, durationSeconds);
+                break;
+              default:
+                resetRecordingState();
+            }
+          }
+        );
+      }
     }
   };
 

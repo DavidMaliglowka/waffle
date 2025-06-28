@@ -1,15 +1,17 @@
 import React from 'react';
-import auth from '@react-native-firebase/auth';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { Alert, Platform } from 'react-native';
+import * as Localization from 'expo-localization';
+import { FirestoreService } from './firestore';
 
 // Use fallback for expo-localization until native module is properly configured
-let Localization: any = null;
+let LocalizationFallback: any = null;
 try {
-  Localization = require('expo-localization');
+  LocalizationFallback = require('expo-localization');
 } catch (error) {
   console.log('🧇 expo-localization not available, using fallback');
-  Localization = null;
+  LocalizationFallback = null;
 }
 
 export type AuthUser = {
@@ -29,6 +31,7 @@ export type AuthResult = {
 
 export class AuthService {
   private static instance: AuthService;
+  private firestoreService: FirestoreService;
   
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -37,16 +40,20 @@ export class AuthService {
     return AuthService.instance;
   }
 
+  constructor() {
+    this.firestoreService = FirestoreService.getInstance();
+  }
+
   // Get user's country code based on device locale
   private getUserCountryCode(): string {
     try {
       // Fallback if expo-localization is not available
-      if (!Localization) {
+      if (!LocalizationFallback) {
         console.log('🧇 expo-localization not available, defaulting to +1');
         return '+1';
       }
       
-      const locale = Localization.getLocales()[0];
+      const locale = LocalizationFallback.getLocales()[0];
       const region = locale.regionCode || 'US';
       
       // Common country code mappings
@@ -171,6 +178,9 @@ export class AuthService {
 
       // Sign the user in with the credential
       const userCredential = await auth().signInWithCredential(appleCredential);
+      
+      // Create or update user profile in Firestore
+      await this.createOrUpdateUserProfile(userCredential.user);
       
       return {
         success: true,
@@ -378,6 +388,9 @@ export class AuthService {
           const linkResult = await currentUser.linkWithCredential(phoneCredential);
           console.log('🔥 Firebase Phone Auth - Phone number successfully linked to Apple account');
 
+          // Update user profile in Firestore with linked phone number
+          await this.createOrUpdateUserProfile(linkResult.user);
+
           // Clear the stored confirmation
           delete (global as any).__smsConfirmation;
 
@@ -422,6 +435,9 @@ export class AuthService {
         ]);
 
         console.log('🔥 Firebase Phone Auth - Code verified successfully');
+
+        // Create or update user profile in Firestore
+        await this.createOrUpdateUserProfile(userCredential.user);
 
         // Clear the stored confirmation
         delete (global as any).__smsConfirmation;
@@ -522,6 +538,64 @@ export class AuthService {
   // Check if Apple Sign-In is available
   static isAppleSignInAvailable(): boolean {
     return appleAuth.isSupported;
+  }
+
+  private async createOrUpdateUserProfile(firebaseUser: FirebaseAuthTypes.User): Promise<void> {
+    try {
+      // Check if user profile already exists
+      const existingProfile = await this.firestoreService.getUser(firebaseUser.uid);
+      
+      if (!existingProfile) {
+        // Create new user profile
+        console.log('🧇 Creating new user profile in Firestore');
+        
+        // Build user data object, only including fields with actual values
+        const userData: any = {
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || 'Waffle User',
+        };
+        
+        // Only add fields if they have actual values (not undefined or null)
+        if (firebaseUser.email) {
+          userData.email = firebaseUser.email;
+        }
+        if (firebaseUser.phoneNumber) {
+          userData.phoneNumber = firebaseUser.phoneNumber;
+        }
+        if (firebaseUser.photoURL) {
+          userData.photoURL = firebaseUser.photoURL;
+        }
+        
+        await this.firestoreService.createUser(userData);
+      } else {
+        // Update existing profile with any new info from Firebase Auth
+        const updates: any = {};
+        
+        // Only update fields that have actual values and are different from existing
+        if (firebaseUser.displayName && firebaseUser.displayName !== existingProfile.displayName) {
+          updates.displayName = firebaseUser.displayName;
+        }
+        if (firebaseUser.email && firebaseUser.email !== existingProfile.email) {
+          updates.email = firebaseUser.email;
+        }
+        if (firebaseUser.phoneNumber && firebaseUser.phoneNumber !== existingProfile.phoneNumber) {
+          updates.phoneNumber = firebaseUser.phoneNumber;
+        }
+        if (firebaseUser.photoURL && firebaseUser.photoURL !== existingProfile.photoURL) {
+          updates.photoURL = firebaseUser.photoURL;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          console.log('🧇 Updating user profile in Firestore with:', Object.keys(updates));
+          await this.firestoreService.updateUser(firebaseUser.uid, updates);
+        } else {
+          console.log('🧇 User profile in Firestore is already up to date');
+        }
+      }
+    } catch (error) {
+      console.error('🧇 Error creating/updating user profile:', error);
+      // Don't throw - authentication should still succeed even if profile creation fails
+    }
   }
 }
 
