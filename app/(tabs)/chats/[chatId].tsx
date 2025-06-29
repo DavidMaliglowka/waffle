@@ -159,7 +159,7 @@ const VideoTimelineItem: React.FC<VideoTimelineItemProps> = React.memo(({
   onPress 
 }) => {
   const [thumbnailError, setThumbnailError] = useState(false);
-
+  
   return (
     <Pressable
       className={`w-16 h-20 rounded-waffle mr-3 relative min-h-[44px] min-w-[44px] bg-surface border-2 ${
@@ -207,7 +207,7 @@ const VideoTimelineItem: React.FC<VideoTimelineItemProps> = React.memo(({
         <View className="absolute top-1 left-1 bg-black/70 rounded px-1">
           <Text className="text-white text-[8px] font-bold">
             {video.isFromCurrentUser ? 'You' : 'Friend'}
-          </Text>
+        </Text>
         </View>
       </View>
       
@@ -584,13 +584,13 @@ export default function ChatThread() {
         <View className="flex-1 items-center">
           <Text className="text-text font-header-bold text-xl">
             {friend?.displayName || 'Loading...'}
-          </Text>
+        </Text>
         </View>
         
         <View className="items-center">
           <Text className="text-gray-500 text-sm font-medium">
             {chat?.streakCount || 0} 🧇
-          </Text>
+        </Text>
         </View>
       </View>
 
@@ -658,7 +658,7 @@ export default function ChatThread() {
                       </Text>
                       <Text className="text-gray-300 text-sm text-center">
                         {videoStatus.error}
-                      </Text>
+              </Text>
                     </View>
                   </View>
                 )}
@@ -670,10 +670,10 @@ export default function ChatThread() {
                       <View className="flex-1">
                         <Text className="text-white font-body text-sm">
                           From {currentVideo.isFromCurrentUser ? 'You' : friend?.displayName}
-                        </Text>
+              </Text>
                         <Text className="text-gray-300 text-xs">
                           {currentVideo.timeAgo}
-                        </Text>
+              </Text>
                       </View>
                       <Pressable
                         onPress={() => setViewMode('record')}
@@ -706,7 +706,7 @@ export default function ChatThread() {
                           {videoStatus.isPlaying ? '⏸︎' : '▶︎'}
                         </Text>
                       </Pressable>
-                    </View>
+            </View>
 
                     {/* Bottom Controls with Progress Bar */}
                     <View className="p-4">
@@ -729,8 +729,8 @@ export default function ChatThread() {
                                   ? (videoStatus.positionMillis / videoStatus.durationMillis) * 100 
                                   : 0}%` 
                               }}
-                            />
-                          </View>
+              />
+            </View>
                         </View>
 
                         {/* Control Buttons */}
@@ -763,17 +763,17 @@ export default function ChatThread() {
                     </View>
                   </View>
                 )}
-              </View>
-            ) : (
+          </View>
+        ) : (
               // No video URL available
               <View className="flex-1 rounded-waffle bg-gray-100 justify-center items-center p-6">
                 <Text className="text-gray-400 text-4xl text-center mb-4">📹</Text>
                 <Text className="text-gray-600 font-body text-lg text-center mb-2">
                   Video not available
-                </Text>
+            </Text>
                 <Text className="text-gray-500 text-sm text-center">
                   This video may have expired or failed to load
-                </Text>
+            </Text>
               </View>
             )}
           </View>
@@ -800,9 +800,9 @@ export default function ChatThread() {
             </Pressable>
 
             {/* Horizontal Timeline */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
               directionalLockEnabled={true}
@@ -814,13 +814,13 @@ export default function ChatThread() {
             >
               {videos.map((video) => (
                 <VideoTimelineItem
-                  key={video.id}
-                  video={video}
-                  isActive={video.id === activeVideoId}
+              key={video.id}
+              video={video}
+              isActive={video.id === activeVideoId}
                   onPress={() => handleVideoSelect(video.id)}
-                />
-              ))}
-            </ScrollView>
+            />
+          ))}
+        </ScrollView>
           </View>
         ) : (
           <View className="flex-1 justify-center items-center">

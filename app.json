@@ -19,11 +19,16 @@
       "bundleIdentifier": "com.letswaffle.app",
       "googleServicesFile": "./GoogleService-Info.local.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Waffle does not access your location. This permission is required by system libraries."
       },
-      "appleTeamId": "GN9HKU8VQ5"
+      "appleTeamId": "GN9HKU8VQ5",
+      "associatedDomains": [
+        "applinks:letswaffle.app",
+        "applinks:www.letswaffle.app"
+      ],
+      "buildNumber": "2"
     },
-
     "web": {
       "bundler": "metro",
       "output": "static",

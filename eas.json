@@ -24,7 +24,8 @@
         "autoIncrement": "buildNumber"
       },
       "env": {
-        "EXPO_PUBLIC_ENV": "production"
+        "EXPO_PUBLIC_ENV": "production",
+        "GOOGLE_SERVICES_PLIST": "GoogleService-Info.plist"
       }
     },
     "production": {
@@ -51,6 +52,12 @@
       "ios": {
         "appleTeamId": "GN9HKU8VQ5",
         "ascAppId": "your-app-store-connect-app-id"
+      }
+    },
+    "testflight": {
+      "ios": {
+        "appleTeamId": "GN9HKU8VQ5",
+        "ascAppId": "6671968624"
       }
     }
   }
