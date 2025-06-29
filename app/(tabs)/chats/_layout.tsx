@@ -4,7 +4,7 @@ export default function ChatsStackLayout() {
   return (
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="[chatId]" options={{ title: 'Waffles' }} />
+      <Stack.Screen name="[chatId]" options={{ headerShown: false }} />
     </Stack>
   );
 }
