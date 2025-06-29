@@ -3,6 +3,7 @@ import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { usePathname } from 'expo-router';
 
 function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
   return <FontAwesome size={24} style={{ marginBottom: -2 }} {...props} />;
@@ -10,6 +11,7 @@ function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const pathname = usePathname();
 
   return (
     <Tabs
@@ -17,6 +19,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarShowLabel: true,
+        tabBarStyle: pathname.includes('/chats/') && pathname !== '/chats' ? { display: 'none' } : undefined,
       }}>
       <Tabs.Screen
         name="chats"

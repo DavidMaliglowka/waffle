@@ -160,7 +160,7 @@ const VideoTimelineItem: React.FC<VideoTimelineItemProps> = React.memo(({
 }) => {
   return (
     <Pressable
-      className={`w-20 h-20 rounded-waffle mr-3 relative min-h-[44px] min-w-[44px] bg-surface border-2 ${
+      className={`w-16 h-20 rounded-waffle mr-3 relative min-h-[44px] min-w-[44px] bg-surface border-2 ${
         isActive ? 'border-primary' : 'border-gray-200'
       } ${video.isExpired ? 'opacity-50' : ''}`}
       onPress={onPress}
@@ -553,16 +553,17 @@ export default function ChatThread() {
           <Text className="text-text font-header-bold text-xl">
             {friend?.displayName || 'Loading...'}
           </Text>
-          <Text className="text-gray-500 text-sm">
+        </View>
+        
+        <View className="items-center">
+          <Text className="text-gray-500 text-sm font-medium">
             {chat?.streakCount || 0} 🧇
           </Text>
         </View>
-        
-        <View className="w-10" />
       </View>
 
-      {/* Main Video Area (80% of screen) */}
-      <View className="flex-[0.8] mx-4 bg-surface rounded-2xl overflow-hidden relative">
+      {/* Main Video Area (85% of screen) */}
+      <View className="flex-[0.85] mx-4 bg-surface rounded-2xl overflow-hidden relative">
         {viewMode === 'record' || !currentVideo ? (
           // Record Mode - Integrated Camera
           <InlineCameraRecorder
@@ -747,8 +748,8 @@ export default function ChatThread() {
         )}
       </View>
 
-      {/* Video Timeline (20% of screen) */}
-      <View className="flex-[0.2] px-4 py-3 border-t border-gray-200">
+      {/* Video Timeline (15% of screen) */}
+      <View className="flex-[0.15] px-4 py-2 border-t border-gray-200">
         {videos.length > 0 ? (
           <ScrollView 
             horizontal 
