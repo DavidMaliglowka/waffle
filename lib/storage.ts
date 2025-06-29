@@ -1,5 +1,6 @@
 import storage from '@react-native-firebase/storage';
 import { firestoreService } from './firestore';
+import { thumbnailService, ThumbnailGenerationResult } from './thumbnailGeneration';
 
 export interface UploadProgress {
   bytesTransferred: number;
@@ -41,7 +42,7 @@ export class StorageService {
     return `chats/${chatId}/thumbnails/${videoId}.gif`;
   }
 
-  // Upload video with progress tracking
+  // Upload video with progress tracking and thumbnail generation
   async uploadVideo(params: UploadVideoParams): Promise<VideoUploadResult> {
     const { chatId, senderId, recipientId, localVideoPath, duration, onProgress } = params;
     
@@ -49,47 +50,78 @@ export class StorageService {
       // Generate unique video ID
       const videoId = this.generateVideoId();
       
-      // Create storage reference
+      console.log('🧇 Starting video upload with thumbnail generation for video:', videoId);
+      
+      // Step 1: Generate thumbnail (30% of progress)
+      let thumbnailResult: ThumbnailGenerationResult | null = null;
+      try {
+        console.log('🧇 Generating thumbnail...');
+        onProgress?.({ bytesTransferred: 0, totalBytes: 100, progress: 10 });
+        
+        thumbnailResult = await thumbnailService.generateAndUploadThumbnail(
+          localVideoPath,
+          chatId,
+          videoId,
+          thumbnailService.getOptimizedOptions('timeline')
+        );
+        
+        console.log('🧇 Thumbnail generated and uploaded:', thumbnailResult.downloadURL);
+        onProgress?.({ bytesTransferred: 30, totalBytes: 100, progress: 30 });
+      } catch (thumbnailError) {
+        console.warn('🧇 Thumbnail generation failed, continuing without thumbnail:', thumbnailError);
+        onProgress?.({ bytesTransferred: 30, totalBytes: 100, progress: 30 });
+      }
+      
+      // Step 2: Upload video (70% of remaining progress)
       const videoPath = this.generateVideoPath(chatId, videoId);
       const videoRef = storage().ref(videoPath);
       
-      // Start upload with progress tracking
+      console.log('🧇 Uploading video to:', videoPath);
       const uploadTask = videoRef.putFile(localVideoPath);
       
-      // Track progress if callback provided
+      // Track video upload progress (from 30% to 100%)
       if (onProgress) {
         uploadTask.on('state_changed', (snapshot) => {
+          const videoProgress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          const totalProgress = 30 + Math.round(videoProgress * 0.7); // Scale to 30-100%
+          
           const progress: UploadProgress = {
             bytesTransferred: snapshot.bytesTransferred,
             totalBytes: snapshot.totalBytes,
-            progress: Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
+            progress: totalProgress,
           };
           onProgress(progress);
         });
       }
       
-      // Wait for upload completion
+      // Wait for video upload completion
       await uploadTask;
       
-      // Get download URL
+      // Get video download URL
       const downloadURL = await videoRef.getDownloadURL();
       
-      // Create video document in Firestore
+      console.log('🧇 Video uploaded successfully:', downloadURL);
+      
+      // Step 3: Create video document in Firestore with thumbnail URL
       await firestoreService.createVideo({
         chatId,
         senderId,
         recipientId,
         videoUrl: downloadURL,
+        thumbnailUrl: thumbnailResult?.downloadURL,
         duration,
       });
+      
+      console.log('🧇 Video document created in Firestore with thumbnail URL');
       
       return {
         downloadURL,
         videoId,
+        thumbnailURL: thumbnailResult?.downloadURL,
       };
       
     } catch (error) {
-      console.error('Video upload failed:', error);
+      console.error('🧇 Video upload failed:', error);
       throw new Error(`Video upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

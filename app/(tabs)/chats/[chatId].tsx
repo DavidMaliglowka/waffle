@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, SafeAreaView, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Video as ExpoVideo, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Button } from '@/components/ui/Button';
@@ -158,6 +158,8 @@ const VideoTimelineItem: React.FC<VideoTimelineItemProps> = React.memo(({
   isActive, 
   onPress 
 }) => {
+  const [thumbnailError, setThumbnailError] = useState(false);
+
   return (
     <Pressable
       className={`w-16 h-20 rounded-waffle mr-3 relative min-h-[44px] min-w-[44px] bg-surface border-2 ${
@@ -167,16 +169,46 @@ const VideoTimelineItem: React.FC<VideoTimelineItemProps> = React.memo(({
       accessibilityRole="button"
       accessibilityLabel={`Video from ${video.isFromCurrentUser ? 'you' : 'friend'} - ${video.timeAgo}`}
     >
-      {/* Video thumbnail placeholder */}
-      <View className={`flex-1 rounded-[10px] justify-center items-center ${
-        video.isFromCurrentUser ? 'bg-primary' : 'bg-secondary'
-      }`}>
-        <Text className="text-white text-xs font-bold">
-          {video.isFromCurrentUser ? 'You' : 'Friend'}
-        </Text>
-        <Text className="text-white text-[10px] opacity-80">
-          {formatDuration(video.duration)}
-        </Text>
+      {/* Video thumbnail */}
+      <View className="flex-1 rounded-[10px] overflow-hidden relative">
+        {video.thumbnailUrl && !thumbnailError ? (
+          // Real thumbnail image
+          <Image
+            source={{ uri: video.thumbnailUrl }}
+            className="flex-1 w-full h-full"
+            style={{ resizeMode: 'cover' }}
+            onError={() => setThumbnailError(true)}
+            onLoad={() => setThumbnailError(false)}
+          />
+        ) : (
+          // Fallback placeholder
+          <View className={`flex-1 justify-center items-center ${
+            video.isFromCurrentUser ? 'bg-primary' : 'bg-secondary'
+          }`}>
+            <Text className="text-white text-xs font-bold">
+              {video.isFromCurrentUser ? 'You' : 'Friend'}
+            </Text>
+            <Text className="text-white text-[10px] opacity-80">
+              {formatDuration(video.duration)}
+            </Text>
+          </View>
+        )}
+
+        {/* Video duration overlay */}
+        {video.thumbnailUrl && !thumbnailError && (
+          <View className="absolute bottom-1 left-1 bg-black/70 rounded px-1">
+            <Text className="text-white text-[8px] font-medium">
+              {formatDuration(video.duration)}
+            </Text>
+          </View>
+        )}
+
+        {/* Sender indicator overlay */}
+        <View className="absolute top-1 left-1 bg-black/70 rounded px-1">
+          <Text className="text-white text-[8px] font-bold">
+            {video.isFromCurrentUser ? 'You' : 'Friend'}
+          </Text>
+        </View>
       </View>
       
       {/* Favorite indicator */}
