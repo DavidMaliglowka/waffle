@@ -783,27 +783,45 @@ export default function ChatThread() {
       {/* Video Timeline (15% of screen) */}
       <View className="flex-[0.15] px-4 py-2 border-t border-gray-200">
         {videos.length > 0 ? (
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            className="py-2"
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={refresh}
-                tintColor="#6366f1"
-              />
-            }
-          >
-            {videos.map((video) => (
-              <VideoTimelineItem
-                key={video.id}
-                video={video}
-                isActive={video.id === activeVideoId}
-                onPress={() => handleVideoSelect(video.id)}
-              />
-            ))}
-          </ScrollView>
+          <View className="flex-row items-center">
+            {/* Refresh Button */}
+            <Pressable
+              onPress={refresh}
+              className={`mr-3 p-2 rounded-lg ${isRefreshing ? 'bg-primary/20' : 'bg-gray-100'}`}
+              disabled={isRefreshing}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh videos"
+            >
+              {isRefreshing ? (
+                <ActivityIndicator size="small" color="#6366f1" />
+              ) : (
+                <Text className="text-primary text-lg">↻</Text>
+              )}
+            </Pressable>
+
+            {/* Horizontal Timeline */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              directionalLockEnabled={true}
+              alwaysBounceVertical={false}
+              alwaysBounceHorizontal={true}
+              bounces={true}
+              className="flex-1 py-2"
+              contentContainerStyle={{ alignItems: 'center' }}
+            >
+              {videos.map((video) => (
+                <VideoTimelineItem
+                  key={video.id}
+                  video={video}
+                  isActive={video.id === activeVideoId}
+                  onPress={() => handleVideoSelect(video.id)}
+                />
+              ))}
+            </ScrollView>
+          </View>
         ) : (
           <View className="flex-1 justify-center items-center">
             <Text className="text-gray-400 font-body text-sm text-center">
