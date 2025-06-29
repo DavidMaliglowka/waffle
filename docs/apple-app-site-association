@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["GN9HKU8VQ5.com.letswaffle.app"],
+        "components": [
+          {
+            "/": "/invite*",
+            "comment": "Matches invite links like letswaffle.app/invite?by=123"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["GN9HKU8VQ5.com.letswaffle.app"]
+  }
+} 

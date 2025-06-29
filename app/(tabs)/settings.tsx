@@ -48,11 +48,10 @@ export default function SettingsScreen() {
                 onPress: async () => {
                   try {
                     await authService.signOut();
-                    router.replace('/auth/phone' as any);
+                    // Navigation will be handled automatically by RootLayoutNav
                   } catch (signOutError) {
                     console.error('Error signing out:', signOutError);
-                    // Force navigation even if sign out fails
-                    router.replace('/auth/phone' as any);
+                    // Even if sign out fails, RootLayoutNav will handle navigation
                   }
                 }
               }
@@ -87,10 +86,10 @@ export default function SettingsScreen() {
                   onPress: async () => {
                     try {
                       await authService.signOut();
-                      router.replace('/auth/phone' as any);
+                      // Navigation will be handled automatically by RootLayoutNav
                     } catch (signOutError) {
                       console.error('Error signing out:', signOutError);
-                      router.replace('/auth/phone' as any);
+                      // Even if sign out fails, RootLayoutNav will handle navigation
                     }
                   }
                 }
@@ -189,9 +188,8 @@ export default function SettingsScreen() {
           try {
             const result = await authService.signOut();
             if (result.success) {
-              // Navigate back to auth/phone screen immediately
-              router.replace('/auth/phone' as any);
               console.log('Signed out successfully');
+              // Navigation will be handled automatically by RootLayoutNav when auth state changes
             } else {
               Alert.alert('Error', result.error || 'Failed to sign out');
             }

@@ -7,13 +7,36 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "buildConfiguration": "Debug"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     },
-    "production": {},
+    "testflight": {
+      "distribution": "store",
+      "ios": {
+        "buildConfiguration": "Release",
+        "autoIncrement": "buildNumber"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "production"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "ios": {
+        "buildConfiguration": "Release",
+        "autoIncrement": "buildNumber"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENV": "production"
+      }
+    },
     "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
@@ -24,6 +47,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "GN9HKU8VQ5",
+        "ascAppId": "your-app-store-connect-app-id"
+      }
+    }
   }
 }

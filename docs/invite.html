@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join the conversation on Waffle</title>
+    <meta name="description" content="You've been invited to connect on Waffle - meaningful video conversations with friends">
+    
+    <!-- Open Graph tags for better sharing -->
+    <meta property="og:title" content="Join the conversation on Waffle">
+    <meta property="og:description" content="You've been invited to connect on Waffle - meaningful video conversations with friends">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://letswaffle.app/invite">
+    
+    <!-- iOS Universal Links -->
+    <meta name="apple-itunes-app" content="app-id=YOUR_APP_STORE_ID">
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #FDB833 0%, #F5A623 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .waffle-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+        
+        .app-store-btn {
+            display: inline-block;
+            background: #000;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+        
+        .app-store-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 20px;
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="waffle-icon">🧇</div>
+        <h1>Join the conversation</h1>
+        <p class="subtitle">You've been invited to connect on Waffle for meaningful video conversations.</p>
+        
+        <div id="status" class="loading">Checking if you have Waffle installed...</div>
+        
+        <a href="#" id="appStoreBtn" class="app-store-btn" style="display: none;">
+            Download Waffle from App Store
+        </a>
+    </div>
+
+    <script>
+        // Get invite parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviterUserId = urlParams.get('by');
+        const statusEl = document.getElementById('status');
+        const appStoreBtnEl = document.getElementById('appStoreBtn');
+        
+        // Store invite data for deferred deep linking
+        if (inviterUserId) {
+            const inviteData = {
+                inviterUserId: inviterUserId,
+                timestamp: Date.now(),
+                source: 'web_fallback'
+            };
+            
+            // Store in localStorage for potential pickup after app install
+            try {
+                localStorage.setItem('waffle_deferred_invite', JSON.stringify(inviteData));
+            } catch (e) {
+                console.log('Could not store invite data:', e);
+            }
+        }
+        
+        // Function to attempt opening the app
+        function attemptAppOpen() {
+            if (inviterUserId) {
+                // Try to open the app with the invite URL
+                const appUrl = `waffle://invite?by=${encodeURIComponent(inviterUserId)}`;
+                window.location.href = appUrl;
+                
+                // Fallback: Try Universal Link
+                setTimeout(() => {
+                    window.location.href = `https://letswaffle.app/invite?by=${encodeURIComponent(inviterUserId)}`;
+                }, 100);
+            }
+        }
+        
+        // Function to redirect to App Store
+        function redirectToAppStore() {
+            // Replace with your actual App Store URL
+            const appStoreUrl = 'https://apps.apple.com/app/waffle/idYOUR_APP_ID';
+            window.location.href = appStoreUrl;
+        }
+        
+        // Check if app is installed by attempting to open it
+        let appInstalled = false;
+        let redirectTimer;
+        
+        // Try to open the app
+        attemptAppOpen();
+        
+        // If we're still here after a short delay, app is probably not installed
+        setTimeout(() => {
+            if (!appInstalled) {
+                statusEl.textContent = 'Get Waffle to start the conversation!';
+                appStoreBtnEl.style.display = 'inline-block';
+                appStoreBtnEl.href = `https://apps.apple.com/app/waffle/idYOUR_APP_ID?referrer=${encodeURIComponent(inviterUserId || '')}`;
+                
+                // Auto-redirect to App Store after a moment
+                redirectTimer = setTimeout(() => {
+                    redirectToAppStore();
+                }, 3000);
+            }
+        }, 2000);
+        
+        // Handle click on App Store button
+        appStoreBtnEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            clearTimeout(redirectTimer);
+            redirectToAppStore();
+        });
+        
+        // Handle page visibility change (detect if user switched to app)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // User switched away from page, likely to the app
+                appInstalled = true;
+                clearTimeout(redirectTimer);
+            }
+        });
+        
+        // Handle beforeunload (iOS Safari)
+        window.addEventListener('beforeunload', () => {
+            appInstalled = true;
+            clearTimeout(redirectTimer);
+        });
+        
+        // Handle pagehide (iOS Safari)
+        window.addEventListener('pagehide', () => {
+            appInstalled = true;
+            clearTimeout(redirectTimer);
+        });
+        
+        // If no inviter ID, show error
+        if (!inviterUserId) {
+            statusEl.textContent = 'Invalid invite link. Please check the link and try again.';
+            statusEl.className = 'error';
+        }
+    </script>
+</body>
+</html> 

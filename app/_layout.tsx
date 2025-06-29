@@ -7,10 +7,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import 'react-native-reanimated';
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthState, authService, type AuthUser } from '@/lib/auth';
 import { WaffleThemeProvider } from '@/components/ThemeProvider';
+import { inviteService } from '@/lib/inviteService';
 
 // Import NativeWind CSS
 import '../global.css';
@@ -79,6 +82,19 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  // Initialize deferred deep linking on app launch
+  useEffect(() => {
+    const initializeDeferred = async () => {
+      try {
+        await inviteService.initializeDeferredDeepLinking();
+      } catch (error) {
+        console.error('🧇 Error initializing deferred deep linking:', error);
+      }
+    };
+
+    initializeDeferred();
+  }, []);
+
   // Register for push notifications (for Firebase APNs)
   useEffect(() => {
     registerForPushNotificationsAsync();
@@ -95,6 +111,80 @@ export default function RootLayout() {
 
     return unsubscribe;
   }, []);
+
+  // Deep linking handler
+  useEffect(() => {
+    // Handle initial URL when app is launched via deep link (cold start)
+    const handleInitialURL = async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          console.log('🧇 Deep Link: App launched with URL:', initialUrl);
+          await handleIncomingURL(initialUrl, true); // Mark as potentially deferred
+        }
+      } catch (error) {
+        console.error('🧇 Deep Link: Error getting initial URL:', error);
+      }
+    };
+
+    // Handle URL when app is opened via deep link (warm start)
+    const handleURL = async (event: { url: string }) => {
+      console.log('🧇 Deep Link: App opened with URL:', event.url);
+      await handleIncomingURL(event.url, false); // Not deferred since app was already running
+    };
+
+    // Set up listeners
+    handleInitialURL();
+    const subscription = Linking.addEventListener('url', handleURL);
+
+    return () => subscription?.remove();
+  }, [user, authLoading]);
+
+  // Process incoming deep links
+  const handleIncomingURL = async (url: string, isPotentiallyDeferred: boolean = false) => {
+    try {
+      const parsed = Linking.parse(url);
+      console.log('🧇 Deep Link: Parsed URL:', parsed, isPotentiallyDeferred ? '(potentially deferred)' : '(direct)');
+
+      // Handle invite links: waffleapp.com/invite?by=userId
+      if (parsed.path === '/invite' && parsed.queryParams) {
+        const inviterUserId = parsed.queryParams.by as string;
+        console.log('🧇 Deep Link: Invite link detected, inviter:', inviterUserId);
+        
+        // Store invite information for later processing
+        if (inviterUserId) {
+          // If this is a cold start (potentially deferred), check if app was recently installed
+          const isDeferred = isPotentiallyDeferred && await inviteService.getAppLaunchCount() <= 3;
+          await inviteService.storePendingInvite(inviterUserId, isDeferred);
+        }
+
+        // Navigate appropriately based on auth state
+        if (!authLoading) {
+          if (user) {
+            // User is authenticated - go to main app and potentially show invite accepted message
+            router.replace('/(tabs)/chats');
+            
+            // Process the invite immediately if user is already authenticated
+            setTimeout(async () => {
+              try {
+                const processed = await inviteService.processPendingInvite(user.uid);
+                if (processed) {
+                  console.log('🧇 Deep Link: Invite processed immediately for authenticated user');
+                }
+              } catch (error) {
+                console.error('🧇 Deep Link: Error processing immediate invite:', error);
+              }
+            }, 1000);
+          } else {
+            // User is not authenticated - go to onboarding/auth with invite context
+            router.replace('/onboarding');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('🧇 Deep Link: Error processing URL:', error);
+    }
+  };
 
   if (!loaded) {
     return <LoadingScreen />;
@@ -153,9 +243,16 @@ function RootLayoutNav({ user, authLoading }: { user: any; authLoading: boolean 
         if (first && !allowed.includes(first)) {
           console.log('🧇 Unauthenticated access to protected route – redirecting to login');
           router.replace('/auth/phone');
+        } else if (!first) {
+          // Handle case where segments might not be populated yet after logout
+          console.log('🧇 User logged out, ensuring redirect to auth');
+          router.replace('/auth/phone');
         }
               } else {
-          // User is authenticated - check if they need phone collection
+          // User is authenticated - process pending invites
+          processPendingInvites(user.uid);
+          
+          // Check if they need phone collection
           const needsPhone = authService.needsPhoneCollection();
           const authRoutes = ['auth', 'onboarding'];
           const currentPath = segments.join('/');
@@ -175,6 +272,19 @@ function RootLayoutNav({ user, authLoading }: { user: any; authLoading: boolean 
         }
     }
   }, [user, authLoading, segments]);
+
+  // Process pending invites when user is authenticated
+  const processPendingInvites = async (userId: string) => {
+    try {
+      const processed = await inviteService.processPendingInvite(userId);
+      if (processed) {
+        console.log('🧇 Deep Link: Successfully processed pending invite');
+        // Optionally show a success message or notification
+      }
+    } catch (error) {
+      console.error('🧇 Deep Link: Error processing pending invites:', error);
+    }
+  };
 
   // Force navigation refresh when auth state changes - MUST be called before any early returns
   React.useEffect(() => {
