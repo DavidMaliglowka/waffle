@@ -59,6 +59,23 @@ service cloud.firestore {
       }
     }
     
+    // Beta email signups - allows unauthenticated email collection from website
+    match /beta_emails/{document} {
+      // Allow unauthenticated email signups from website
+      allow create: if 
+        request.auth == null
+        && request.resource.data.keys().hasAll(['email', 'timestamp', 'source'])
+        && request.resource.data.keys().size() <= 4
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}')
+        && request.resource.data.source == 'landing_page'
+        && request.resource.data.timestamp == request.time;
+      
+      // No reading, updating, or deleting
+      allow read, update, delete: if false;
+    }
+    
     // Security rules for batch operations and admin functions
     // Cloud Functions will use admin SDK, so these rules don't apply to server-side operations
     

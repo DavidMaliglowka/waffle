@@ -256,6 +256,19 @@ export class AuthService {
 
       let confirmationResult;
       
+      // Add basic validation before calling Firebase  
+      console.log('🔥 Firebase Phone Auth - Attempting to send SMS to:', formattedNumber);
+      console.log('🔥 Firebase App Config Check:', {
+        appId: auth().app.options.appId ? '***PRESENT***' : 'MISSING',
+        apiKey: auth().app.options.apiKey ? '***PRESENT***' : 'MISSING',
+        projectId: auth().app.options.projectId || 'MISSING',
+      });
+      
+      // Basic safety check for Firebase configuration (less strict to avoid assertion failures)
+      if (!auth().app.options.projectId || auth().app.options.projectId === 'your-firebase-project-id') {
+        throw new Error('Firebase configuration is incomplete or contains placeholder values. Please check your environment setup.');
+      }
+      
       // Race between Firebase verification and timeout
       confirmationResult = await Promise.race([
         auth().signInWithPhoneNumber(formattedNumber),

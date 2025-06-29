@@ -20,19 +20,17 @@
     "testflight": {
       "distribution": "store",
       "ios": {
-        "buildConfiguration": "Release",
-        "autoIncrement": "buildNumber"
+        "buildConfiguration": "Release"
       },
+      "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_ENV": "production",
-        "GOOGLE_SERVICES_PLIST": "GoogleService-Info.plist"
+        "EXPO_PUBLIC_ENV": "production"
       }
     },
     "production": {
       "distribution": "store",
       "ios": {
-        "buildConfiguration": "Release",
-        "autoIncrement": "buildNumber"
+        "buildConfiguration": "Release"
       },
       "env": {
         "EXPO_PUBLIC_ENV": "production"

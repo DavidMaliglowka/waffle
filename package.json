@@ -12,8 +12,7 @@
     "clean": "rm -rf ios/build && rm -rf node_modules && npm install && cd ios && pod install && cd ..",
     "clean:ios": "rm -rf ios/build && cd ios && pod install && cd ..",
     "pods": "cd ios && pod install && cd ..",
-    "xcode": "open ios/waffle.xcworkspace",
-    "expo:prebuild": "node scripts/generate-google-services.js"
+    "xcode": "open ios/waffle.xcworkspace"
   },
   "jest": {
     "preset": "jest-expo"
