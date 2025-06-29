@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, SafeAreaView, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Video as ExpoVideo, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Button } from '@/components/ui/Button';
 import { useAuthState } from '@/lib/auth';
 import { FirestoreService, Chat, Video, User } from '@/lib/firestore';
+import InlineCameraRecorder from '@/components/InlineCameraRecorder';
 
 // Constants
 const VIDEO_ITEM_HEIGHT = 80;
@@ -208,6 +210,31 @@ export default function ChatThread() {
   // State for video selection and UI
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'record' | 'playback'>('record');
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  
+  // Video playback state
+  const videoRef = useRef<ExpoVideo>(null);
+  const [videoStatus, setVideoStatus] = useState<{
+    isLoaded: boolean;
+    isPlaying: boolean;
+    positionMillis: number;
+    durationMillis: number;
+    isBuffering: boolean;
+    error: string | null;
+  }>({
+    isLoaded: false,
+    isPlaying: false,
+    positionMillis: 0,
+    durationMillis: 0,
+    isBuffering: false,
+    error: null,
+  });
+
+  // Video controls state
+  const [showControls, setShowControls] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [isMuted, setIsMuted] = useState(false);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Custom hook for chat data (only if auth is loaded and user exists)
   const {
@@ -249,30 +276,227 @@ export default function ChatThread() {
   useEffect(() => {
     if (videos.length > 0 && !activeVideoId) {
       setActiveVideoId(videos[0].id);
+      setShouldAutoPlay(false); // Don't auto-play initial video
     }
   }, [videos, activeVideoId]);
+
+  // Reset video status when switching videos
+  useEffect(() => {
+    if (activeVideoId && videoRef.current) {
+      setVideoStatus({
+        isLoaded: false,
+        isPlaying: false,
+        positionMillis: 0,
+        durationMillis: 0,
+        isBuffering: false,
+        error: null,
+      });
+      
+      // Ensure video starts from beginning when switching videos
+      const resetVideo = async () => {
+        try {
+          await videoRef.current?.pauseAsync();
+          await videoRef.current?.setPositionAsync(0);
+        } catch (error) {
+          console.log('🧇 Video reset error (safe to ignore):', error);
+        }
+      };
+      
+      resetVideo();
+    }
+  }, [activeVideoId]);
 
   // Handle video selection from timeline
   const handleVideoSelect = useCallback((videoId: string) => {
     setActiveVideoId(videoId);
     setViewMode('playback');
+    setShouldAutoPlay(true); // Auto-play when video loads
   }, []);
 
-  // Handle record button press
-  const handleRecordPress = useCallback(() => {
-    if (!chatId) return;
-    router.push(`/chats/camera?chatId=${chatId}`);
-  }, [chatId, router]);
+  // Handle video sent from camera
+  const handleVideoSent = useCallback(() => {
+    console.log('🧇 Video sent successfully');
+    // The real-time subscription will automatically update the video list
+    // Optionally switch to playback mode of the latest video
+    if (videos.length > 0) {
+      setActiveVideoId(videos[0].id);
+      setViewMode('playback');
+      setShouldAutoPlay(false); // Don't auto-play after sending
+    }
+  }, [videos]);
+
+  // Handle camera errors
+  const handleCameraError = useCallback((error: string) => {
+    console.error('🧇 Camera error:', error);
+    Alert.alert('Camera Error', error);
+  }, []);
 
   // Handle back navigation
   const handleBackPress = useCallback(() => {
     router.back();
   }, [router]);
 
+  // Video playback handlers
+  const handleVideoStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setVideoStatus(prev => ({
+        ...prev,
+        isLoaded: true,
+        isPlaying: status.isPlaying,
+        positionMillis: status.positionMillis || 0,
+        durationMillis: status.durationMillis || 0,
+        isBuffering: status.isBuffering,
+        error: null,
+      }));
+    } else if (status.error) {
+      console.error('🧇 Video playback error:', status.error);
+      setVideoStatus(prev => ({
+        ...prev,
+        isLoaded: false,
+        error: status.error || 'Video playback failed',
+      }));
+    }
+  }, []);
+
+  const handlePlayPause = useCallback(async () => {
+    if (!videoRef.current || !videoStatus.isLoaded) return;
+    
+    try {
+      if (videoStatus.isPlaying) {
+        await videoRef.current.pauseAsync();
+        // Show controls when pausing
+        setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+      } else {
+        // Ensure video starts from beginning if at the end
+        if (videoStatus.positionMillis >= videoStatus.durationMillis - 1000) {
+          await videoRef.current.setPositionAsync(0);
+        }
+        await videoRef.current.playAsync();
+        // Hide controls after 2 seconds when playing
+        setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+        controlsTimeoutRef.current = setTimeout(() => {
+          setShowControls(false);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('🧇 Play/pause error:', error);
+      Alert.alert('Playback Error', 'Failed to control video playback');
+    }
+  }, [videoStatus.isPlaying, videoStatus.isLoaded, videoStatus.positionMillis, videoStatus.durationMillis]);
+
+  const handleVideoSeek = useCallback(async (positionMillis: number) => {
+    if (!videoRef.current) return;
+    
+    try {
+      await videoRef.current.setPositionAsync(positionMillis);
+    } catch (error) {
+      console.error('🧇 Video seek error:', error);
+    }
+  }, []);
+
+  const handleVideoTap = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    
+    // If video is playing, hide controls again after 2 seconds
+    if (videoStatus.isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 2000);
+    }
+  }, [videoStatus.isPlaying]);
+
+  const handlePlaybackRateChange = useCallback(async () => {
+    if (!videoRef.current) return;
+    
+    const rates = [1.0, 1.25, 1.5, 2.0];
+    const currentIndex = rates.indexOf(playbackRate);
+    const nextRate = rates[(currentIndex + 1) % rates.length];
+    
+    try {
+      await videoRef.current.setRateAsync(nextRate, true);
+      setPlaybackRate(nextRate);
+    } catch (error) {
+      console.error('🧇 Playback rate error:', error);
+    }
+  }, [playbackRate]);
+
+  const handleVolumeToggle = useCallback(async () => {
+    if (!videoRef.current) return;
+    
+    try {
+      await videoRef.current.setIsMutedAsync(!isMuted);
+      setIsMuted(!isMuted);
+    } catch (error) {
+      console.error('🧇 Volume toggle error:', error);
+    }
+  }, [isMuted]);
+
   // Get current active video
   const currentVideo = useMemo(() => {
     return videos.find(v => v.id === activeVideoId) || videos[0] || null;
   }, [videos, activeVideoId]);
+
+  // Reset video controls when current video changes
+  useEffect(() => {
+    setVideoStatus({
+      isLoaded: false,
+      isPlaying: false,
+      positionMillis: 0,
+      durationMillis: 0,
+      isBuffering: false,
+      error: null,
+    });
+    setShowControls(true);
+    setPlaybackRate(1.0);
+    setIsMuted(false);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+  }, [currentVideo?.id]);
+
+  // Auto-play video when loaded (if user selected from timeline)
+  useEffect(() => {
+    const autoPlayVideo = async () => {
+      if (shouldAutoPlay && videoStatus.isLoaded && videoRef.current) {
+        try {
+          await videoRef.current.playAsync();
+          setShouldAutoPlay(false); // Reset flag
+          
+          // Hide controls immediately when auto-playing from timeline
+          setShowControls(false);
+          if (controlsTimeoutRef.current) {
+            clearTimeout(controlsTimeoutRef.current);
+            controlsTimeoutRef.current = null;
+          }
+        } catch (error) {
+          console.error('🧇 Auto-play error:', error);
+          setShouldAutoPlay(false); // Reset flag even on error
+        }
+      }
+    };
+
+    autoPlayVideo();
+  }, [shouldAutoPlay, videoStatus.isLoaded]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Loading state (auth loading or chat loading)
   if (authLoading || isLoading) {
@@ -338,72 +562,189 @@ export default function ChatThread() {
       </View>
 
       {/* Main Video Area (80% of screen) */}
-      <View className="flex-[0.8] mx-4 bg-surface rounded-2xl p-4 relative">
+      <View className="flex-[0.8] mx-4 bg-surface rounded-2xl overflow-hidden relative">
         {viewMode === 'record' || !currentVideo ? (
-          // Record Mode / Empty State
-          <View className="flex-1 justify-center items-center">
-            <Text className="text-text font-header-bold text-2xl text-center mb-2">
-              {videos.length === 0 ? 'Start Your First Waffle!' : 'Record New Waffle'}
-            </Text>
-            <Text className="text-gray-600 font-body text-base text-center mb-6">
-              {videos.length === 0 
-                ? 'Send a video message to begin your conversation'
-                : 'Tap the button below to record a new video'
-              }
-            </Text>
-            
-            {/* Camera Icon Placeholder */}
-            <View className="w-32 h-32 rounded-waffle bg-gray-100 justify-center items-center mb-6">
-              <Text className="text-gray-400 text-4xl">📹</Text>
-            </View>
-          </View>
+          // Record Mode - Integrated Camera
+          <InlineCameraRecorder
+            chatId={chatId!}
+            userId={authUser!.uid}
+            onVideoSent={handleVideoSent}
+            onError={handleCameraError}
+            className="flex-1 rounded-2xl"
+          />
         ) : (
-          // Playback Mode
-          <View className="flex-1 justify-center">
-            <View className={`flex-1 rounded-waffle justify-center items-center p-6 ${
-              currentVideo.isFromCurrentUser ? 'bg-primary' : 'bg-secondary'
-            }`}>
-              <Text className="text-white text-4xl text-center mb-4">📹</Text>
-              <Text className="text-white font-body text-lg text-center mb-2">
-                Video from {currentVideo.isFromCurrentUser ? 'You' : friend?.displayName}
-              </Text>
-              <Text className="text-white text-sm text-center">
-                {formatDuration(currentVideo.duration)} • {currentVideo.timeAgo}
-              </Text>
-            </View>
+          // Playback Mode - Fixed container structure
+          <View className="flex-1">
+            {currentVideo.videoUrl ? (
+              <View 
+                className="flex-1 bg-black relative"
+                style={{ position: 'relative', width: '100%', height: '100%' }}
+              >
+                {/* Video Player with Tap Gesture */}
+                <Pressable 
+                  onPress={handleVideoTap}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Video player controls"
+                >
+                  <ExpoVideo
+                    ref={videoRef}
+                    source={{ uri: currentVideo.videoUrl }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode={ResizeMode.COVER}
+                    onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                    shouldPlay={false}
+                    isLooping={false}
+                    useNativeControls={false}
+                  />
+                </Pressable>
 
-            {/* Playback Controls */}
-            <View className="flex-row justify-center items-center mt-4 space-x-3">
-              <Button
-                title="▶️ Play"
-                variant="outline"
-                size="small"
-              />
-              <Button
-                title="2x"
-                variant="ghost"
-                size="small"
-              />
-              <Button
-                title="📝"
-                variant="ghost"
-                size="small"
-              />
-            </View>
+                {/* Loading Overlay */}
+                {!videoStatus.isLoaded && !videoStatus.error && (
+                  <View 
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    className="bg-black/50 justify-center items-center"
+                  >
+                    <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 items-center">
+                      <ActivityIndicator size="large" color="#ffffff" />
+                      <Text className="text-white font-body mt-3 text-center">Loading video...</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Error Overlay */}
+                {videoStatus.error && (
+                  <View 
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    className="bg-black/80 justify-center items-center p-6"
+                  >
+                    <View className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 items-center max-w-sm">
+                      <Text className="text-red-400 text-4xl text-center mb-4">⚠️</Text>
+                      <Text className="text-white font-body text-center mb-2">
+                        Video playback failed
+                      </Text>
+                      <Text className="text-gray-300 text-sm text-center">
+                        {videoStatus.error}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Video Info Overlay with Close Button */}
+                {videoStatus.isLoaded && (
+                  <View style={{ position: 'absolute', top: 16, left: 16, right: 16 }}>
+                    <View className="bg-black/50 rounded-lg p-3 flex-row justify-between items-center">
+                      <View className="flex-1">
+                        <Text className="text-white font-body text-sm">
+                          From {currentVideo.isFromCurrentUser ? 'You' : friend?.displayName}
+                        </Text>
+                        <Text className="text-gray-300 text-xs">
+                          {currentVideo.timeAgo}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => setViewMode('record')}
+                        className="w-8 h-8 rounded-full bg-white/20 justify-center items-center ml-3"
+                        accessibilityRole="button"
+                        accessibilityLabel="Close video player"
+                      >
+                        <Text className="text-white text-lg font-bold">×</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
+                {/* Playback Controls Overlay */}
+                {videoStatus.isLoaded && showControls && (
+                  <View 
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    className="justify-between"
+                  >
+                    {/* Center Play/Pause Button */}
+                    <View className="flex-1 justify-center items-center">
+                      <Pressable
+                        onPress={handlePlayPause}
+                        className="w-20 h-20 rounded-full bg-black/70 justify-center items-center"
+                        style={{ transform: [{ scale: videoStatus.isPlaying ? 0.9 : 1 }] }}
+                        accessibilityRole="button"
+                        accessibilityLabel={videoStatus.isPlaying ? 'Pause video' : 'Play video'}
+                      >
+                        <Text className="text-white text-3xl font-bold">
+                          {videoStatus.isPlaying ? '⏸︎' : '▶︎'}
+                        </Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Bottom Controls with Progress Bar */}
+                    <View className="p-4">
+                      <View className="bg-black/70 rounded-lg p-3">
+                        {/* Progress Bar */}
+                        <View className="mb-3">
+                          <View className="flex-row justify-between mb-2">
+                            <Text className="text-white text-xs font-medium">
+                              {formatDuration(Math.floor(videoStatus.positionMillis / 1000))}
+                            </Text>
+                            <Text className="text-white text-xs font-medium">
+                              {formatDuration(Math.floor(videoStatus.durationMillis / 1000))}
+                            </Text>
+                          </View>
+                          <View className="h-1 bg-white/30 rounded-full">
+                            <View 
+                              className="h-1 bg-white rounded-full"
+                              style={{ 
+                                width: `${videoStatus.durationMillis > 0 
+                                  ? (videoStatus.positionMillis / videoStatus.durationMillis) * 100 
+                                  : 0}%` 
+                              }}
+                            />
+                          </View>
+                        </View>
+
+                        {/* Control Buttons */}
+                        <View className="flex-row justify-between items-center">
+                          {/* Speed Control - Bottom Left */}
+                          <Pressable
+                            onPress={handlePlaybackRateChange}
+                            className="bg-black/70 rounded-lg px-4 py-3"
+                            accessibilityRole="button"
+                            accessibilityLabel={`Playback speed: ${playbackRate}x`}
+                          >
+                            <Text className="text-white text-base font-medium">
+                              {playbackRate}x
+                            </Text>
+                          </Pressable>
+
+                          {/* Volume Control - Bottom Right */}
+                          <Pressable
+                            onPress={handleVolumeToggle}
+                            className="bg-black/70 rounded-lg px-4 py-3"
+                            accessibilityRole="button"
+                            accessibilityLabel={isMuted ? 'Unmute video' : 'Mute video'}
+                          >
+                            <Text className="text-white text-base font-bold">
+                              {isMuted ? '🔇' : '🔊'}
+                            </Text>
+                          </Pressable>
+                                                </View>
+                        </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : (
+              // No video URL available
+              <View className="flex-1 rounded-waffle bg-gray-100 justify-center items-center p-6">
+                <Text className="text-gray-400 text-4xl text-center mb-4">📹</Text>
+                <Text className="text-gray-600 font-body text-lg text-center mb-2">
+                  Video not available
+                </Text>
+                <Text className="text-gray-500 text-sm text-center">
+                  This video may have expired or failed to load
+                </Text>
+              </View>
+            )}
           </View>
         )}
-
-        {/* Record Button */}
-        <View className="absolute bottom-4 left-4 right-4">
-          <Button
-            title="Pour a Waffle 🧇"
-            variant="primary"
-            size="large"
-            fullWidth
-            onPress={handleRecordPress}
-            className="rounded-2xl shadow-md"
-          />
-        </View>
       </View>
 
       {/* Video Timeline (20% of screen) */}
