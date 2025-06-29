@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, SafeAreaView, Pressable, Alert, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Camera, useCameraDevices, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { Video, ResizeMode } from 'expo-av';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +25,7 @@ interface RecordingState {
 
 export default function CameraModal() {
   const router = useRouter();
+  const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const cameraRef = useRef<Camera>(null);
   
   // Vision Camera hooks
@@ -66,6 +67,16 @@ export default function CameraModal() {
   const { user: authUser } = useAuthState();
 
   useEffect(() => {
+    // Validate that we have a chatId
+    if (!chatId) {
+      Alert.alert(
+        'Invalid Access',
+        'Camera can only be accessed from a chat thread.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+      return;
+    }
+
     // Cleanup timer and camera on unmount
     return () => {
       if (intervalRef.current) {
@@ -74,7 +85,7 @@ export default function CameraModal() {
       // Deactivate camera to prevent session conflicts
       setIsActive(false);
     };
-  }, []);
+  }, [chatId, router]);
 
   // Check if we have a device
   if (!device) {
@@ -407,36 +418,40 @@ export default function CameraModal() {
 
         console.log('🧇 Starting Firebase Storage upload...');
 
-        // Ensure test chat exists in Firestore for Storage rules
-        let testChatId: string = `test-chat-${authUser?.uid || 'default'}`;
-        if (authUser?.uid) {
-          try {
-            const { FirestoreService } = await import('@/lib/firestore');
-            const firestoreService = FirestoreService.getInstance();
-            
-            // Create test chat if it doesn't exist
-            const existingChat = await firestoreService.getChat(testChatId).catch(() => null);
-            if (!existingChat) {
-              console.log('🧇 Creating test chat for upload testing');
-              
-              // Create chat with proper member IDs
-              const chatId = await firestoreService.createChat([authUser.uid, 'test-recipient']);
-              console.log('🧇 Test chat created successfully with ID:', chatId);
-              
-              // Update the testChatId to use the generated ID
-              testChatId = chatId;
-            }
-          } catch (error) {
-            console.error('🧇 Error creating test chat:', error);
+        // Get chat information for the recipient
+        if (!chatId || !authUser?.uid) {
+          throw new Error('Missing chat ID or user authentication');
+        }
+
+        let recipientId: string;
+        try {
+          const { FirestoreService } = await import('@/lib/firestore');
+          const firestoreService = FirestoreService.getInstance();
+          
+          // Get the chat to find the recipient
+          const chat = await firestoreService.getChat(chatId);
+          if (!chat) {
+            throw new Error('Chat not found');
           }
+
+          // Find the recipient (the other member that's not the current user)
+          recipientId = chat.members.find(memberId => memberId !== authUser.uid) || '';
+          if (!recipientId) {
+            throw new Error('Recipient not found in chat');
+          }
+
+          console.log('🧇 Uploading video to chat:', chatId, 'for recipient:', recipientId);
+        } catch (error) {
+          console.error('🧇 Error getting chat info:', error);
+          throw new Error('Failed to get chat information');
         }
 
         // Upload to Firebase Storage with retry logic and progress tracking
         const uploadResult = await videoUploadErrorHandler.withRetry(
           () => uploadVideoToChat({
-            chatId: testChatId, // Use the created/existing test chat
+            chatId: chatId, // Use the actual chat ID
             senderId: authUser?.uid || 'unknown-user',
-            recipientId: 'test-recipient', // Dummy recipient for now
+            recipientId: recipientId, // Real recipient from chat
             localVideoPath: compressionResult.uri,
             duration: durationSeconds,
             onProgress: (progress: UploadProgress) => {

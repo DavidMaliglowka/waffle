@@ -1,4 +1,5 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import functions from '@react-native-firebase/functions';
 
 // Type definitions based on PRD requirements
 export interface User {
@@ -74,7 +75,23 @@ export class FirestoreService {
       });
   }
 
-  // Chat operations  
+  // Chat operations with Cloud Function integration
+  async createChatViaCloudFunction(userId1: string, userId2: string): Promise<{ chatId: string; isNew: boolean }> {
+    try {
+      const createChatFunction = functions().httpsCallable('createChat');
+      const result = await createChatFunction({ userId1, userId2 });
+      
+      return {
+        chatId: result.data.chatId,
+        isNew: result.data.isNew,
+      };
+    } catch (error) {
+      console.error('🧇 Error calling createChat Cloud Function:', error);
+      throw new Error('Failed to create chat via Cloud Function');
+    }
+  }
+
+  // Fallback direct chat creation (for development/testing)
   async createChat(memberIds: [string, string]): Promise<string> {
     const now = firestore.Timestamp.now();
     const chatRef = firestore().collection('chats').doc();
@@ -88,6 +105,28 @@ export class FirestoreService {
 
     await chatRef.set(chat);
     return chatRef.id;
+  }
+
+  // Enhanced find or create chat using Cloud Function
+  async findOrCreateChatSecure(userId1: string, userId2: string): Promise<string> {
+    try {
+      const result = await this.createChatViaCloudFunction(userId1, userId2);
+      return result.chatId;
+    } catch (error) {
+      console.error('🧇 Cloud Function failed, falling back to direct creation:', error);
+      
+      // Fallback to direct method
+      const existingChats = await this.getUserChats(userId1);
+      const existingChat = existingChats.find(chat => 
+        chat.members.includes(userId2) && chat.members.length === 2
+      );
+
+      if (existingChat) {
+        return existingChat.id;
+      }
+
+      return this.createChat([userId1, userId2]);
+    }
   }
 
   async getChat(chatId: string): Promise<Chat | null> {

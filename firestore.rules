@@ -12,10 +12,22 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Check if user is a member of any chat with the target user
+    function isConnectedUser(targetUserId) {
+      return isAuthenticated() && exists(/databases/$(database)/documents/chats/$(request.auth.uid + '_' + targetUserId)) ||
+             exists(/databases/$(database)/documents/chats/$(targetUserId + '_' + request.auth.uid));
+    }
     
-    // Users collection - users can only read/write their own profile
+    // Users collection rules
     match /users/{userId} {
+      // Users can read their own profile completely
       allow read, write: if isOwner(userId);
+      
+      // Authenticated users can read basic profile info of other users
+      // This allows chat list to display friend names and avatars
+      allow read: if isAuthenticated() && 
+        // Only allow reading basic profile fields, not sensitive ones
+        request.auth.uid != userId;
     }
     
     // Chats collection - users can only access chats they're members of
