@@ -62,7 +62,7 @@ export class FirestoreService {
 
   async getUser(uid: string): Promise<User | null> {
     const doc = await firestore().collection('users').doc(uid).get();
-    return doc.exists ? (doc.data() as User) : null;
+    return doc.exists() ? (doc.data() as User) : null;
   }
 
   async updateUser(uid: string, updates: Partial<Omit<User, 'uid' | 'createdAt'>>): Promise<void> {
@@ -81,9 +81,10 @@ export class FirestoreService {
       const createChatFunction = functions().httpsCallable('createChat');
       const result = await createChatFunction({ userId1, userId2 });
       
+      const data = result.data as { chatId: string; isNew: boolean };
       return {
-        chatId: result.data.chatId,
-        isNew: result.data.isNew,
+        chatId: data.chatId,
+        isNew: data.isNew,
       };
     } catch (error) {
       console.error('🧇 Error calling createChat Cloud Function:', error);
@@ -131,7 +132,7 @@ export class FirestoreService {
 
   async getChat(chatId: string): Promise<Chat | null> {
     const doc = await firestore().collection('chats').doc(chatId).get();
-    return doc.exists ? ({ id: doc.id, ...doc.data() } as Chat) : null;
+    return doc.exists() ? ({ id: doc.id, ...doc.data() } as Chat) : null;
   }
 
   async getUserChats(userId: string): Promise<Chat[]> {
@@ -204,7 +205,7 @@ export class FirestoreService {
       .doc(videoId)
       .get();
 
-    return doc.exists ? ({ id: doc.id, ...doc.data() } as Video) : null;
+    return doc.exists() ? ({ id: doc.id, ...doc.data() } as Video) : null;
   }
 
   async getChatVideos(chatId: string, limit: number = 20): Promise<Video[]> {

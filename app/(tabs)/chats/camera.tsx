@@ -4,6 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Camera, useCameraDevices, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { Video, ResizeMode } from 'expo-av';
 import { Button } from '@/components/ui/Button';
+import { RAGOverlay } from '@/components/RAGOverlay';
+import { RAGToggleButton } from '@/components/RAGToggleButton';
 import { compressVideoForUpload, videoCompressionService } from '@/lib/videoCompression';
 import { uploadVideoToChat, UploadProgress } from '@/lib/storage';
 import { videoUploadErrorHandler, ErrorType, VideoUploadError } from '@/lib/videoUploadErrorHandler';
@@ -55,6 +57,10 @@ export default function CameraModal() {
   // Camera settings
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
   const [isActive, setIsActive] = useState(true);
+  
+  // RAG overlay state
+  const [ragOverlayVisible, setRagOverlayVisible] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
 
   // Get the appropriate camera device
   const device = cameraPosition === 'front' 
@@ -168,6 +174,7 @@ export default function CameraModal() {
     }
 
     try {
+      console.log('🧇 Starting recording - RAG components should be visible now');
       setRecordingState(prev => ({ 
         ...prev, 
         isRecording: true, 
@@ -577,6 +584,24 @@ export default function CameraModal() {
     return MAX_DURATION - recordingState.duration;
   };
 
+  // RAG overlay handlers
+  const handleToggleRAGOverlay = () => {
+    console.log('🧇 Toggling RAG overlay, current state:', ragOverlayVisible);
+    setRagOverlayVisible(!ragOverlayVisible);
+  };
+
+  const handleSuggestionSelect = (suggestion: any) => {
+    setSelectedSuggestion(suggestion.text);
+    setRagOverlayVisible(false);
+    
+    // Show a brief confirmation to the user
+    Alert.alert(
+      'Suggestion Selected',
+      `💡 "${suggestion.text}"\n\nUse this as inspiration for your video!`,
+      [{ text: 'Got it!', style: 'default' }]
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-black">
       {/* Header */}
@@ -603,6 +628,8 @@ export default function CameraModal() {
           <Text className="text-white text-sm">🔄</Text>
         </Pressable>
       </View>
+
+
 
       {/* Camera View */}
       <View className="flex-1 mx-4 mb-4 rounded-2xl overflow-hidden">
@@ -635,6 +662,17 @@ export default function CameraModal() {
                     REC {formatTime(recordingState.duration)}
                   </Text>
                 </View>
+                
+                {/* Selected suggestion indicator */}
+                {selectedSuggestion && (
+                  <View className="bg-primary/90 px-4 py-2 rounded-xl mt-2 max-w-xs">
+                    <Text className="text-darkCharcoal font-body text-sm text-center">
+                      💡 {selectedSuggestion.length > 40 ? 
+                        selectedSuggestion.substring(0, 40) + '...' : 
+                        selectedSuggestion}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Duration display in center */}
@@ -679,8 +717,45 @@ export default function CameraModal() {
               )}
             </View>
           )}
+
+          {/* RAG AI Assistant - Following same pattern as recording overlays */}
+          {recordingState.isRecording && (
+            <View className="absolute bottom-4 left-4 right-4">
+              {/* RAG Toggle Bar - Similar to recording indicator style */}
+              <View className="bg-black/60 px-4 py-3 rounded-full flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <Text className="text-white font-body text-sm mr-2">🤖</Text>
+                  <Text className="text-white font-body text-sm flex-1">
+                    {ragOverlayVisible ? 'AI suggestions ready' : 'Tap for AI suggestions'}
+                  </Text>
+                </View>
+                
+                <Pressable
+                  onPress={handleToggleRAGOverlay}
+                  className={`px-3 py-1 rounded-full ${ragOverlayVisible ? 'bg-primary' : 'bg-white/20'}`}
+                >
+                  <Text className={`font-body-bold text-xs ${ragOverlayVisible ? 'text-darkCharcoal' : 'text-white'}`}>
+                    {ragOverlayVisible ? 'Hide' : 'Show'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Selected suggestion display */}
+              {selectedSuggestion && (
+                <View className="bg-primary/90 px-4 py-2 rounded-xl mt-2">
+                  <Text className="text-darkCharcoal font-body text-sm text-center">
+                    💡 Using: {selectedSuggestion.length > 50 ? 
+                      selectedSuggestion.substring(0, 50) + '...' : 
+                      selectedSuggestion}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           </Camera>
         )}
+        
       </View>
 
       {/* Bottom Controls */}
@@ -760,7 +835,7 @@ export default function CameraModal() {
             {/* Record Button */}
             <View className="items-center">
               <Pressable
-                className="w-20 h-20 rounded-full justify-center items-center shadow-lg bg-primary active:scale-95"
+                className="w-20 h-20 rounded-full justify-center items-center shadow-sm bg-primary active:scale-95 border-2 border-white/30"
                 onPress={handleStartRecording}
                 accessibilityRole="button"
                 accessibilityLabel="Start recording"
@@ -774,6 +849,17 @@ export default function CameraModal() {
           </>
         )}
       </View>
+
+      {/* RAG Overlay */}
+      {chatId && (
+        <RAGOverlay
+          chatId={chatId}
+          isRecording={recordingState.isRecording}
+          isVisible={ragOverlayVisible}
+          onSuggestionSelect={handleSuggestionSelect}
+          onToggleVisibility={handleToggleRAGOverlay}
+        />
+      )}
     </SafeAreaView>
   );
 }

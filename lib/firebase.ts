@@ -3,9 +3,13 @@
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
+import functions from '@react-native-firebase/functions';
 
 // Simple Firebase initialization logging
 console.log('🔥 Firebase initialized');
+
+// All Firebase services using production
+console.log('☁️ Firebase configured for production (all services)');
 
 // Basic configuration check (non-blocking)
 const validateFirebaseConfig = () => {
@@ -27,7 +31,7 @@ const validateFirebaseConfig = () => {
 validateFirebaseConfig();
 
 // Export Firebase services
-export { auth, firestore, storage };
+export { auth, firestore, storage, functions };
 
 // Firebase Auth instance
 export const firebaseAuth = auth();
@@ -37,6 +41,9 @@ export const firebaseFirestore = firestore();
 
 // Storage instance
 export const firebaseStorage = storage();
+
+// Functions instance
+export const firebaseFunctions = functions();
 
 // Auth configuration
 export const authConfig = {

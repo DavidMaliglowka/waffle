@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, SafeAreaView, Share, Alert, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, SafeAreaView, Share, Alert, Pressable, ActivityIndicator, Image, ScrollView, TouchableOpacity } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { Button } from '@/components/ui/Button';
 import { useAuthState } from '@/lib/auth';
@@ -75,22 +75,16 @@ export default function InviteScreen() {
         </Text>
       </View>
 
-      {/* Main Content */}
-      <View className="flex-1 px-6 justify-center">
-        {/* Waffle Stack Illustration */}
-        <View className="items-center mb-8">
-          <View className="relative">
-            {/* Waffle Stack */}
-            <View className="bg-yellow-400 w-28 h-28 rounded-2xl justify-center items-center mb-2 shadow-lg">
-              <Text className="text-yellow-900 text-5xl">🧇</Text>
-            </View>
-            <View className="bg-yellow-300 w-24 h-24 rounded-2xl justify-center items-center absolute -top-3 -right-2 shadow-md">
-              <Text className="text-yellow-800 text-4xl">🧇</Text>
-            </View>
-            <View className="bg-yellow-500 w-20 h-20 rounded-2xl justify-center items-center absolute -top-6 -right-4 shadow-sm">
-              <Text className="text-yellow-900 text-3xl">🧇</Text>
-            </View>
-          </View>
+      {/* Scrollable Content */}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="px-6 pt-20 pb-8">
+        {/* Custom Illustration */}
+        <View className="items-center mb-12 mt-8">
+          <Image 
+            source={require('@/assets/images/invite-illustration.png')}
+            style={{ width: 200, height: 200 }}
+            resizeMode="contain"
+          />
           
           <Text className="text-text font-header-bold text-3xl text-center mt-8 mb-2">
             Invite Friends to Waffle
@@ -100,47 +94,40 @@ export default function InviteScreen() {
           </Text>
         </View>
 
-        {/* Action Grid */}
+        {/* Modern Share Section */}
         <View className="mb-8">
           <Text className="text-text font-header-bold text-lg text-center mb-6">
             Share Your Personal Invite Link
           </Text>
           
-          <View className="flex-row space-x-4">
-            {/* Share Link Button */}
+          {/* Share Button with Copy Icon */}
+          <View className="flex-row items-center space-x-3">
             <Pressable
               onPress={handleShareLink}
-              className="flex-1 bg-primary rounded-2xl p-6 items-center shadow-sm active:scale-95"
+              className="flex-1 bg-primary rounded-2xl p-4 items-center border border-primary/10 active:scale-95 shadow-lg"
               style={{ transform: [{ scale: 1 }] }}
             >
-              <View className="w-12 h-12 bg-white/20 rounded-xl justify-center items-center mb-3">
-                <Text className="text-white text-2xl">📤</Text>
+              <View className="flex-row items-center">
+                <Text className="text-white text-xl mr-2">📤</Text>
+                <Text className="text-white font-body-bold text-lg">Share Invite Link</Text>
               </View>
-              <Text className="text-white font-body-bold text-base mb-1">Share Link</Text>
-              <Text className="text-white/80 font-body text-xs text-center">
-                Send via messages, email, or social media
-              </Text>
             </Pressable>
 
-            {/* Copy Link Button */}
-            <Pressable
+            {/* Copy Icon Button */}
+            <TouchableOpacity
               onPress={handleCopyLink}
-              className="flex-1 bg-yellow-400 rounded-2xl p-6 items-center shadow-sm active:scale-95"
+              className="w-14 h-14 bg-yellow-400 rounded-2xl items-center justify-center border border-yellow-500/20 active:scale-95 shadow-lg"
               style={{ transform: [{ scale: 1 }] }}
             >
-              <View className="w-12 h-12 bg-yellow-900/20 rounded-xl justify-center items-center mb-3">
-                <Text className="text-yellow-900 text-2xl">
-                  {copySuccess ? '✅' : '📋'}
-                </Text>
-              </View>
-              <Text className="text-yellow-900 font-body-bold text-base mb-1">
-                {copySuccess ? 'Copied!' : 'Copy Link'}
+              <Text className="text-yellow-900 text-xl">
+                {copySuccess ? '✅' : '📋'}
               </Text>
-              <Text className="text-yellow-800 font-body text-xs text-center">
-                {copySuccess ? 'Ready to paste anywhere' : 'Save to clipboard for later'}
-              </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
+          
+          <Text className="text-gray-500 font-body text-sm text-center mt-3">
+            Share via messages, email, or tap 📋 to copy
+          </Text>
         </View>
 
         {/* Benefits Preview */}
@@ -172,7 +159,8 @@ export default function InviteScreen() {
             </View>
           </View>
         </View>
-      </View>
+        </View>
+      </ScrollView>
 
       {/* Footer */}
       <View className="px-6 pb-6">

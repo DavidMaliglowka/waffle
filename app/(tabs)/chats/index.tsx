@@ -241,7 +241,7 @@ const ChatListItem = React.memo<ChatListItemProps>(({ chat }) => {
   return (
     <Pressable 
       onPress={handlePress}
-      className="flex-row items-center p-4 my-1.5 bg-surface border border-gray-200 rounded-waffle relative shadow-sm"
+      className="flex-row items-center p-4 my-1.5 bg-surface border border-gray-200/50 rounded-waffle relative hover:border-gray-300 active:bg-gray-50"
       style={{ height: CHAT_ITEM_HEIGHT }}
       accessibilityRole="button"
       accessibilityLabel={`Chat with ${chat.friendName}`}

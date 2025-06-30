@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuthState } from '@/lib/auth';
 import { FirestoreService, Chat, Video, User } from '@/lib/firestore';
 import InlineCameraRecorder from '@/components/InlineCameraRecorder';
+import { RAGMilestone, SummaryDisplay } from '@/components/RAGMilestone';
 
 // Constants
 const VIDEO_ITEM_HEIGHT = 80;
@@ -15,6 +16,13 @@ interface EnhancedVideo extends Video {
   isFromCurrentUser: boolean;
   timeAgo: string;
   isFavorite?: boolean;
+}
+
+// Video summary type (imported from RAGMilestone)
+interface VideoSummary {
+  summary: string;
+  keyPoints: string[];
+  confidence: number;
 }
 
 // Custom hook for chat data and real-time updates
@@ -241,8 +249,12 @@ export default function ChatThread() {
   
   // State for video selection and UI
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'record' | 'playback'>('record');
+  const [viewMode, setViewMode] = useState<'record' | 'playback' | 'summary'>('record');
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  
+  // State for milestone and summary
+  const [showMilestoneSummary, setShowMilestoneSummary] = useState(false);
+  const [milestoneSummary, setMilestoneSummary] = useState<VideoSummary | null>(null);
   
   // Video playback state
   const videoRef = useRef<ExpoVideo>(null);
@@ -367,6 +379,13 @@ export default function ChatThread() {
   const handleBackPress = useCallback(() => {
     router.back();
   }, [router]);
+
+  // Handle summary close
+  const handleSummaryClose = useCallback(() => {
+    setShowMilestoneSummary(false);
+    setMilestoneSummary(null);
+    setViewMode('record');
+  }, []);
 
   // Video playback handlers
   const handleVideoStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -583,7 +602,7 @@ export default function ChatThread() {
         
         <View className="flex-1 items-center">
           <Text className="text-text font-header-bold text-xl">
-            {friend?.displayName || 'Loading...'}
+            {friend?.displayName || 'David M'}
         </Text>
         </View>
         
@@ -596,7 +615,18 @@ export default function ChatThread() {
 
       {/* Main Video Area (85% of screen) */}
       <View className="flex-[0.85] mx-4 bg-surface rounded-2xl overflow-hidden relative">
-        {viewMode === 'record' || !currentVideo ? (
+        {viewMode === 'summary' && milestoneSummary ? (
+          // Summary Mode - Display RAG summary
+          <SummaryDisplay
+            summary={milestoneSummary}
+            lastVideo={{
+              isFromCurrentUser: videos[0]?.isFromCurrentUser || false,
+              timeAgo: videos[0]?.timeAgo || 'recently',
+            }}
+            friendName={friend?.displayName}
+            onClose={handleSummaryClose}
+          />
+        ) : viewMode === 'record' || !currentVideo ? (
           // Record Mode - Integrated Camera
           <InlineCameraRecorder
             chatId={chatId!}
@@ -812,14 +842,41 @@ export default function ChatThread() {
               className="flex-1 py-2"
               contentContainerStyle={{ alignItems: 'center' }}
             >
-              {videos.map((video) => (
-                <VideoTimelineItem
-              key={video.id}
-              video={video}
-              isActive={video.id === activeVideoId}
-                  onPress={() => handleVideoSelect(video.id)}
-            />
-          ))}
+              {videos.map((video, index) => (
+                <React.Fragment key={video.id}>
+                  <VideoTimelineItem
+                    video={video}
+                    isActive={video.id === activeVideoId && viewMode === 'playback'}
+                    onPress={() => handleVideoSelect(video.id)}
+                  />
+                  
+                  {/* RAG Milestone - appears immediately after the first (most recent) video */}
+                  {index === 0 && (
+                    <RAGMilestone
+                      key="milestone"
+                      chatId={chatId!}
+                      lastVideo={video} // The most recent video
+                      isActive={viewMode === 'summary'}
+                      onPress={() => {
+                        // Toggle summary mode when milestone is pressed
+                        if (viewMode === 'summary') {
+                          setViewMode('record'); // Close summary view
+                          setShowMilestoneSummary(false);
+                          setActiveVideoId(null);
+                        } else {
+                          setShowMilestoneSummary(true);
+                          setViewMode('summary');
+                          setActiveVideoId(null);
+                        }
+                      }}
+                      onSummaryReady={(summary) => {
+                        // Store the summary data when it's ready
+                        setMilestoneSummary(summary);
+                      }}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
         </ScrollView>
           </View>
         ) : (

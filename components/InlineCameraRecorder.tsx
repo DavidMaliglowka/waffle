@@ -54,6 +54,7 @@ const InlineCameraRecorder: React.FC<InlineCameraRecorderProps> = ({
   // Timer and camera settings
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const shouldProcessVideoRef = useRef<boolean>(false);
+  const currentDurationRef = useRef<number>(0);
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
   const [isActive, setIsActive] = useState(true);
 
@@ -102,6 +103,7 @@ const InlineCameraRecorder: React.FC<InlineCameraRecorderProps> = ({
       showReplay: false,
     });
     shouldProcessVideoRef.current = false;
+    currentDurationRef.current = 0;
   }, []);
 
   const handleStartRecording = useCallback(async () => {
@@ -126,6 +128,7 @@ const InlineCameraRecorder: React.FC<InlineCameraRecorderProps> = ({
       intervalRef.current = setInterval(() => {
         setRecordingState(prev => {
           const newDuration = prev.duration + 1;
+          currentDurationRef.current = newDuration; // Update ref with current duration
           if (newDuration >= MAX_DURATION) {
             handleStopRecording(true);
             return { ...prev, duration: MAX_DURATION };
@@ -140,12 +143,13 @@ const InlineCameraRecorder: React.FC<InlineCameraRecorderProps> = ({
         onRecordingFinished: async (video) => {
           console.log('🧇 Video recorded:', video);
           if (shouldProcessVideoRef.current) {
+            const finalDuration = currentDurationRef.current; // Use ref instead of state
             setRecordingState(prev => ({ 
               ...prev, 
               recordedVideoPath: video.path,
               showReplay: true 
             }));
-            await handleVideoProcessing(video.path, recordingState.duration);
+            await handleVideoProcessing(video.path, finalDuration);
           }
         },
         onRecordingError: (error) => {
@@ -391,7 +395,10 @@ const InlineCameraRecorder: React.FC<InlineCameraRecorderProps> = ({
               title="Send Waffle 🧇"
               variant="primary"
               size="small"
-              onPress={() => handleVideoProcessing(recordingState.recordedVideoPath!, recordingState.duration)}
+              onPress={() => {
+                const currentDuration = currentDurationRef.current; // Use ref for consistency
+                handleVideoProcessing(recordingState.recordedVideoPath!, currentDuration);
+              }}
             />
           </View>
         )}

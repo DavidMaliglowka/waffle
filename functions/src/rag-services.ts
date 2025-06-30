@@ -9,12 +9,20 @@ import {OpenAI} from "openai";
 import {Pinecone} from "@pinecone-database/pinecone";
 import ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs";
+import ffmpegPath from "ffmpeg-static";
 
-import {Readable} from "stream";
+
+
+// Set ffmpeg binary path
+if (ffmpegPath) {
+  ffmpeg.setFfmpegPath(ffmpegPath);
+}
 
 // Initialize clients lazily to avoid environment variable issues
 let openai: OpenAI | null = null;
 let pinecone: Pinecone | null = null;
+
+// Debug function removed - using inline env check in functions
 
 function getOpenAIClient(): OpenAI {
   if (!openai) {
@@ -45,7 +53,7 @@ const EMBEDDING_MODEL = "text-embedding-ada-002";
 const CHAT_MODEL = "gpt-4";
 const CHUNK_SIZE = 250; // tokens
 const OVERLAP_SIZE = 50; // tokens
-const PINECONE_INDEX_NAME = "waffle-transcripts";
+const PINECONE_INDEX_NAME = "waffle";
 const EMBEDDING_DIMENSION = 1536;
 
 // Types
@@ -103,45 +111,76 @@ export async function extractAudioFromVideo(
   const tempAudioPath = `/tmp/audio_${Date.now()}.wav`;
 
   try {
+    logger.info(`🎬 Starting audio extraction for video: ${videoPath}`);
+    logger.info(`📥 FFmpeg path: ${ffmpegPath || 'not found'}`);
+
     // Download video file to temporary location
     await bucket.file(videoPath).download({destination: tempVideoPath});
-    logger.info(`Downloaded video from ${videoPath} to ${tempVideoPath}`);
+    logger.info(`✅ Downloaded video from ${videoPath} to ${tempVideoPath}`);
+
+    // Check if video file was downloaded successfully
+    if (!fs.existsSync(tempVideoPath)) {
+      throw new Error(`Video file not found after download: ${tempVideoPath}`);
+    }
+    const videoStats = fs.statSync(tempVideoPath);
+    logger.info(`📊 Video file size: ${videoStats.size} bytes`);
 
     // Extract audio using ffmpeg
+    logger.info(`🎵 Starting ffmpeg audio extraction...`);
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(tempVideoPath)
+      const command = ffmpeg(tempVideoPath)
         .output(tempAudioPath)
         .audioCodec("pcm_s16le")
         .audioFrequency(16000)
         .audioChannels(1)
         .format("wav")
+        .on("start", (commandLine) => {
+          logger.info(`🔧 FFmpeg command: ${commandLine}`);
+        })
+        .on("progress", (progress) => {
+          logger.info(`⏳ FFmpeg progress: ${Math.round(progress.percent || 0)}%`);
+        })
         .on("end", () => {
-          logger.info(`Audio extracted to ${tempAudioPath}`);
+          logger.info(`✅ Audio extracted to ${tempAudioPath}`);
           resolve();
         })
         .on("error", (error: any) => {
-          logger.error("FFmpeg error:", error);
+          logger.error("❌ FFmpeg error:", error);
           reject(error);
-        })
-        .run();
+        });
+      
+      command.run();
     });
+
+    // Check if audio file was created successfully
+    if (!fs.existsSync(tempAudioPath)) {
+      throw new Error(`Audio file not found after extraction: ${tempAudioPath}`);
+    }
 
     // Read the audio file as buffer
     const audioBuffer = fs.readFileSync(tempAudioPath);
+    logger.info(`📊 Audio buffer size: ${audioBuffer.length} bytes`);
 
     // Cleanup temporary files
     fs.unlinkSync(tempVideoPath);
     fs.unlinkSync(tempAudioPath);
+    logger.info(`🧹 Cleaned up temporary files`);
 
     return audioBuffer;
   } catch (error) {
-    logger.error("Error extracting audio from video:", error);
+    logger.error("❌ Error extracting audio from video:", error);
     // Cleanup on error
     try {
-      if (fs.existsSync(tempVideoPath)) fs.unlinkSync(tempVideoPath);
-      if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+      if (fs.existsSync(tempVideoPath)) {
+        fs.unlinkSync(tempVideoPath);
+        logger.info(`🧹 Cleaned up video file: ${tempVideoPath}`);
+      }
+      if (fs.existsSync(tempAudioPath)) {
+        fs.unlinkSync(tempAudioPath);
+        logger.info(`🧹 Cleaned up audio file: ${tempAudioPath}`);
+      }
     } catch (cleanupError) {
-      logger.warn("Error cleaning up temp files:", cleanupError);
+      logger.warn("⚠️ Error cleaning up temp files:", cleanupError);
     }
     throw error;
   }
@@ -154,26 +193,40 @@ export async function generateTranscript(
   audioBuffer: Buffer,
   filename = "audio.wav"
 ): Promise<TranscriptResult> {
+  const tempAudioPath = `/tmp/whisper_${Date.now()}.wav`;
+  
   try {
-    // Convert buffer to a readable stream
-    const audioStream = new Readable();
-    audioStream.push(audioBuffer);
-    audioStream.push(null);
+    logger.info(`🎙️ Starting transcription with OpenAI Whisper`);
+    logger.info(`📊 Audio buffer size: ${audioBuffer.length} bytes`);
 
-    // Add filename property to the stream
-    (audioStream as any).path = filename;
+    // Write audio buffer to temporary file for OpenAI API
+    fs.writeFileSync(tempAudioPath, audioBuffer);
+    logger.info(`💾 Wrote audio buffer to temp file: ${tempAudioPath}`);
 
-    logger.info("Sending audio to OpenAI Whisper for transcription");
+    // Verify file was written correctly
+    if (!fs.existsSync(tempAudioPath)) {
+      throw new Error(`Temp audio file not found: ${tempAudioPath}`);
+    }
+    const fileStats = fs.statSync(tempAudioPath);
+    logger.info(`📊 Temp audio file size: ${fileStats.size} bytes`);
+
+    logger.info("📤 Sending audio to OpenAI Whisper for transcription");
 
     const response = await getOpenAIClient().audio.transcriptions.create({
-      file: audioStream as any,
+      file: fs.createReadStream(tempAudioPath),
       model: "whisper-1",
       language: "en",
       response_format: "verbose_json",
       timestamp_granularities: ["segment"],
     });
 
-    logger.info(`Transcription completed. Duration: ${response.duration}s`);
+    logger.info(`✅ Transcription completed. Duration: ${response.duration}s`);
+    logger.info(`📝 Transcript text length: ${response.text?.length || 0} characters`);
+    logger.info(`🎯 Transcript segments: ${response.segments?.length || 0}`);
+
+    // Cleanup temp file
+    fs.unlinkSync(tempAudioPath);
+    logger.info(`🧹 Cleaned up temp audio file`);
 
     return {
       text: response.text,
@@ -186,7 +239,18 @@ export async function generateTranscript(
       duration: response.duration || 0,
     };
   } catch (error) {
-    logger.error("Error generating transcript:", error);
+    logger.error("❌ Error generating transcript:", error);
+    
+    // Cleanup temp file on error
+    try {
+      if (fs.existsSync(tempAudioPath)) {
+        fs.unlinkSync(tempAudioPath);
+        logger.info(`🧹 Cleaned up temp audio file after error`);
+      }
+    } catch (cleanupError) {
+      logger.warn("⚠️ Error cleaning up temp audio file:", cleanupError);
+    }
+    
     throw error;
   }
 }
@@ -468,6 +532,9 @@ export async function generateContextualResponse(
   context: SearchResult[]
 ): Promise<string> {
   try {
+    logger.info(`🤖 Generating contextual response for query: "${query}"`);
+    logger.info(`📊 Context items: ${context.length}`);
+    
     const contextText = context
       .map(
         (item) =>
@@ -475,7 +542,36 @@ export async function generateContextualResponse(
       )
       .join("\n\n");
 
-    const systemPrompt = `You are a helpful AI assistant that provides contextual responses based on video conversation transcripts between friends. Use the provided context to give relevant, concise, and helpful suggestions for replies in a casual conversation.
+    logger.info(`📝 Context text length: ${contextText.length} characters`);
+    logger.info(`📝 Context preview: "${contextText.substring(0, 300)}..."`);
+
+    // Check if this is a summary request and adjust the prompt accordingly
+    const isSummaryRequest = query.toLowerCase().includes('summarize') || 
+                           query.toLowerCase().includes('summary') ||
+                           query.toLowerCase().includes('main topics') ||
+                           query.toLowerCase().includes('key takeaways');
+
+    let systemPrompt: string;
+    
+    if (isSummaryRequest) {
+      systemPrompt = `You are an AI assistant that creates clear, concise summaries of video conversations. Based on the provided transcript context, create a summary that works well as bullet points.
+
+Video Transcript Context:
+${contextText}
+
+Guidelines:
+- Create 3-4 separate sentences, each covering a different aspect of the conversation
+- Focus on specific activities, topics, goals, or updates mentioned
+- Each sentence should be substantial enough to stand alone as a bullet point
+- Keep sentences concise but informative (15-25 words each)
+- Use natural, conversational language
+- Include specific details when mentioned (projects, activities, achievements, plans)
+- Don't mention timestamps or technical details
+- Structure as distinct points rather than flowing narrative
+
+Example format: "The person shared updates about their 3D printing hobby. They're working on egg-shaped designs with hand details. A printing competition is coming up that they're excited about. Winning first prize is an important goal for them."`;
+    } else {
+      systemPrompt = `You are a helpful AI assistant that provides contextual responses based on video conversation transcripts between friends. Use the provided context to give relevant, concise, and helpful suggestions for replies in a casual conversation.
 
 Context from recent conversations:
 ${contextText}
@@ -487,6 +583,9 @@ Guidelines:
 - If no relevant context exists, provide general conversation starters
 - Keep suggestions under 50 words each
 - Format as a simple list with bullet points or numbers`;
+    }
+
+    logger.info(`🎯 Using ${isSummaryRequest ? 'summary' : 'conversation'} prompt mode`);
 
     const response = await getOpenAIClient().chat.completions.create({
       model: CHAT_MODEL,
@@ -498,9 +597,12 @@ Guidelines:
       temperature: 0.7,
     });
 
-    return response.choices[0]?.message?.content || "No suggestions available.";
+    const generatedResponse = response.choices[0]?.message?.content || "No suggestions available.";
+    logger.info(`✅ GPT-4 response: "${generatedResponse}"`);
+
+    return generatedResponse;
   } catch (error) {
-    logger.error("Error generating contextual response:", error);
+    logger.error("❌ Error generating contextual response:", error);
     throw error;
   }
 }
@@ -569,4 +671,4 @@ export async function processVideoForRAG(
 
     throw error;
   }
-} 
+}

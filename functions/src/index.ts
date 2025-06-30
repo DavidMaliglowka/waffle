@@ -420,53 +420,87 @@ export const processVideoRAG = onDocumentCreated({
   memory: "1GiB",
   timeoutSeconds: 540, // 9 minutes
 }, async (event) => {
-    const videoData = event.data?.data();
-    const chatId = event.params.chatId;
-    const videoId = event.params.videoId;
+  const videoData = event.data?.data();
+  const chatId = event.params.chatId;
+  const videoId = event.params.videoId;
 
-    if (!videoData) {
-      logger.error("No video data found for RAG processing");
-      return;
+  if (!videoData) {
+    logger.error("No video data found for RAG processing");
+    return;
+  }
+
+  // Check if RAG processing is already completed or in progress
+  if (videoData.ragProcessed === true) {
+    logger.info(`RAG already processed for video ${videoId}`);
+    return;
+  }
+
+  // Debug: Log all video data to see what's in Firestore
+  logger.info(`🔍 Processing video ${videoId}, full data:`, {
+    videoDuration: videoData.duration,
+    durationType: typeof videoData.duration,
+    allFields: Object.keys(videoData),
+    videoData: JSON.stringify(videoData, null, 2),
+  });
+
+  // Only process videos longer than 20 seconds
+  const videoDuration = videoData.duration || 0;
+  if (videoDuration < 20) {
+    logger.info(`Skipping video ${videoId} - too short (${videoDuration}s, minimum 20s required)`);
+    await event.data?.ref.update({
+      ragProcessed: false,
+      ragSkipped: true,
+      ragSkipReason: "Video too short (minimum 20 seconds required)",
+    });
+    return;
+  }
+
+  logger.info(`Starting RAG processing for video ${videoId} in chat ${chatId}`);
+
+  try {
+    // Mark as processing to avoid duplicate triggers
+    await event.data?.ref.update({
+      ragProcessing: true,
+      ragStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Extract storage path from video URL 
+    const videoUrl = videoData.videoUrl;
+    if (!videoUrl) {
+      throw new Error("Video URL not found in document");
     }
-
-    // Check if RAG processing is already completed or in progress
-    if (videoData.ragProcessed === true) {
-      logger.info(`RAG already processed for video ${videoId}`);
-      return;
+    
+    // Extract the storage path from the Firebase Storage URL
+    // URL format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path%2Fto%2Ffile.mp4?alt=media&token=...
+    const urlParts = videoUrl.split('/o/');
+    if (urlParts.length < 2) {
+      throw new Error("Invalid video URL format");
     }
+    const encodedPath = urlParts[1].split('?')[0]; // Remove query parameters
+    const videoPath = decodeURIComponent(encodedPath); // Decode URL encoding
+    
+    logger.info(`Extracted storage path: ${videoPath} from URL: ${videoUrl}`);
 
-    logger.info(`Starting RAG processing for video ${videoId} in chat ${chatId}`);
+    // Process video for RAG
+    await processVideoForRAG(videoPath, videoId, chatId);
 
+    logger.info(`RAG processing completed for video ${videoId}`);
+  } catch (error) {
+    logger.error(`Error processing video ${videoId} for RAG:`, error);
+
+    // Update document with error status
     try {
-      // Mark as processing to avoid duplicate triggers
       await event.data?.ref.update({
-        ragProcessing: true,
-        ragStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+        ragProcessing: false,
+        ragProcessed: false,
+        ragError: error instanceof Error ? error.message : "Unknown error",
+        ragErrorAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-      // Construct video file path in Firebase Storage
-      const videoPath = `chats/${chatId}/videos/${videoId}.mp4`;
-
-      // Process video for RAG
-      await processVideoForRAG(videoPath, videoId, chatId);
-
-      logger.info(`RAG processing completed for video ${videoId}`);
-    } catch (error) {
-      logger.error(`Error processing video ${videoId} for RAG:`, error);
-      
-      // Update document with error status
-      try {
-        await event.data?.ref.update({
-          ragProcessing: false,
-          ragProcessed: false,
-          ragError: error instanceof Error ? error.message : "Unknown error",
-          ragErrorAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } catch (updateError) {
-        logger.error("Error updating document with RAG error:", updateError);
-      }
+    } catch (updateError) {
+      logger.error("Error updating document with RAG error:", updateError);
     }
   }
+}
 );
 
 // ========================================
@@ -502,6 +536,14 @@ export const queryRAG = onCall<
   async (request) => {
     const startTime = Date.now();
     
+    // Debug: Check environment variables
+    logger.info('🔍 Environment check:', {
+      hasOpenAI: !!process.env.OPENAI_API_KEY,
+      hasPinecone: !!process.env.PINECONE_API_KEY,
+      openaiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
+      pineconeKeyLength: process.env.PINECONE_API_KEY?.length || 0,
+    });
+
     // Validate authentication
     requireAuth(request);
     const uid = request.auth!.uid;
@@ -545,14 +587,23 @@ export const queryRAG = onCall<
 
     try {
       // Generate query embedding
+      logger.info(`🔍 Generating embedding for query: "${query}"`);
       const queryEmbedding = await generateQueryEmbedding(query);
+      logger.info(`✅ Generated embedding with dimension: ${queryEmbedding.length}`);
 
       // Search Pinecone for relevant context
+      logger.info(`🔍 Searching Pinecone namespace "${chatId}" for relevant context...`);
       const searchResults = await searchPinecone(
         queryEmbedding,
         chatId,
         maxResults
       );
+      logger.info(`📊 Pinecone search returned ${searchResults.length} results`);
+      
+      // Log search results for debugging
+      searchResults.forEach((result, index) => {
+        logger.info(`📝 Result ${index + 1}: Score ${result.score.toFixed(4)}, VideoID: ${result.metadata.videoId}, Text: "${result.metadata.text.substring(0, 100)}..."`);
+      });
 
       // Generate contextual response
       let response = "I don't have enough context to help with that query.";
@@ -564,15 +615,19 @@ export const queryRAG = onCall<
       }> = [];
 
       if (searchResults.length > 0) {
+        logger.info(`🤖 Generating contextual response with ${searchResults.length} sources`);
         response = await generateContextualResponse(query, searchResults);
+        logger.info(`✅ Generated response: "${response.substring(0, 200)}..."`);
 
         // Format sources for response
-        sources.push(...searchResults.map(result => ({
+        sources.push(...searchResults.map((result) => ({
           videoId: result.metadata.videoId,
           timestamp: result.metadata.startTime,
           confidence: Math.round(result.score * 100) / 100,
           text: result.metadata.text.substring(0, 150) + "...",
         })));
+      } else {
+        logger.warn(`⚠️ No search results found in Pinecone namespace "${chatId}" for query "${query}"`);
       }
 
       const processingTimeMs = Date.now() - startTime;
@@ -633,6 +688,18 @@ export const processRAGBacklog = onSchedule({
         continue;
       }
 
+      // Skip videos shorter than 20 seconds
+      const videoDuration = videoData.duration || 0;
+      if (videoDuration < 20) {
+        logger.info(`Skipping video ${videoId} in backlog - too short (${videoDuration}s)`);
+        await videoDoc.ref.update({
+          ragProcessed: false,
+          ragSkipped: true,
+          ragSkipReason: "Video too short (minimum 20 seconds required)",
+        });
+        continue;
+      }
+
       // Skip if failed recently (within last 6 hours)
       if (videoData.ragErrorAt) {
         const errorTime = videoData.ragErrorAt.toDate();
@@ -653,8 +720,21 @@ export const processRAGBacklog = onSchedule({
             ragStartedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          // Construct video file path
-          const videoPath = `chats/${chatId}/videos/${videoId}.mp4`;
+          // Extract storage path from video URL
+          const videoUrl = videoData.videoUrl;
+          if (!videoUrl) {
+            throw new Error("Video URL not found in document");
+          }
+          
+          // Extract the storage path from the Firebase Storage URL
+          const urlParts = videoUrl.split('/o/');
+          if (urlParts.length < 2) {
+            throw new Error("Invalid video URL format");
+          }
+          const encodedPath = urlParts[1].split('?')[0]; // Remove query parameters
+          const videoPath = decodeURIComponent(encodedPath); // Decode URL encoding
+          
+          logger.info(`Backlog processing - extracted storage path: ${videoPath}`);
 
           // Process video for RAG
           await processVideoForRAG(videoPath, videoId, chatId);
@@ -662,7 +742,7 @@ export const processRAGBacklog = onSchedule({
           logger.info(`Backlog RAG processing completed for video ${videoId}`);
         } catch (error) {
           logger.error(`Error in backlog RAG processing for video ${videoId}:`, error);
-          
+
           // Update with error status
           await videoDoc.ref.update({
             ragProcessing: false,
@@ -678,9 +758,9 @@ export const processRAGBacklog = onSchedule({
 
     // Process all videos in parallel (with reasonable limits)
     const results = await Promise.allSettled(processPromises);
-    
-    const successful = results.filter(r => r.status === "fulfilled").length;
-    const failed = results.filter(r => r.status === "rejected").length;
+
+    const successful = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
 
     logger.info(`RAG backlog processing completed: ${successful} successful, ${failed} failed`);
   } catch (error) {
