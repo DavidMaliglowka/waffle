@@ -19,6 +19,12 @@ import {
   validateOrigin,
   logSecurityEvent,
 } from "./security";
+import {
+  processVideoForRAG,
+  generateQueryEmbedding,
+  searchPinecone,
+  generateContextualResponse,
+} from "./rag-services";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -297,7 +303,7 @@ export const healthCheck = onRequest(async (request, response) => {
   try {
     // Quick Firestore connectivity test
     await db.collection("_health").doc("test").set({
-      timestamp: admin.firestore.Timestamp.now(),
+      timestamp: new Date().toISOString(),
       status: "ok",
     });
 
@@ -404,3 +410,281 @@ export const getUserStats = onCall<
     }
   }
 );
+
+// ========================================
+// 6. FIRESTORE TRIGGER: Process Videos for RAG
+// ========================================
+
+export const processVideoRAG = onDocumentCreated({
+  document: "chats/{chatId}/videos/{videoId}",
+  memory: "1GiB",
+  timeoutSeconds: 540, // 9 minutes
+}, async (event) => {
+    const videoData = event.data?.data();
+    const chatId = event.params.chatId;
+    const videoId = event.params.videoId;
+
+    if (!videoData) {
+      logger.error("No video data found for RAG processing");
+      return;
+    }
+
+    // Check if RAG processing is already completed or in progress
+    if (videoData.ragProcessed === true) {
+      logger.info(`RAG already processed for video ${videoId}`);
+      return;
+    }
+
+    logger.info(`Starting RAG processing for video ${videoId} in chat ${chatId}`);
+
+    try {
+      // Mark as processing to avoid duplicate triggers
+      await event.data?.ref.update({
+        ragProcessing: true,
+        ragStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Construct video file path in Firebase Storage
+      const videoPath = `chats/${chatId}/videos/${videoId}.mp4`;
+
+      // Process video for RAG
+      await processVideoForRAG(videoPath, videoId, chatId);
+
+      logger.info(`RAG processing completed for video ${videoId}`);
+    } catch (error) {
+      logger.error(`Error processing video ${videoId} for RAG:`, error);
+      
+      // Update document with error status
+      try {
+        await event.data?.ref.update({
+          ragProcessing: false,
+          ragProcessed: false,
+          ragError: error instanceof Error ? error.message : "Unknown error",
+          ragErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (updateError) {
+        logger.error("Error updating document with RAG error:", updateError);
+      }
+    }
+  }
+);
+
+// ========================================
+// 7. CALLABLE FUNCTION: RAG Query Interface
+// ========================================
+
+interface RAGQueryRequest {
+  query: string;
+  chatId: string;
+  maxResults?: number;
+}
+
+interface RAGQueryResponse {
+  response: string;
+  sources: Array<{
+    videoId: string;
+    timestamp: number;
+    confidence: number;
+    text: string;
+  }>;
+  processingTimeMs: number;
+}
+
+export const queryRAG = onCall<
+  RAGQueryRequest,
+  Promise<RAGQueryResponse>
+>(
+  {
+    cors: true,
+    memory: "512MiB",
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const startTime = Date.now();
+    
+    // Validate authentication
+    requireAuth(request);
+    const uid = request.auth!.uid;
+
+    // Sanitize input data
+    const sanitizedData = sanitizeInput(request.data);
+    const {query, chatId, maxResults = 5} = sanitizedData;
+
+    // Log security event
+    logSecurityEvent("rag_query_request", {
+      userId: uid,
+      chatId,
+      queryLength: query?.length || 0,
+    });
+
+    // Validate input
+    if (!query || !chatId) {
+      throw new Error("Query and chatId are required");
+    }
+
+    if (query.length > 500) {
+      throw new Error("Query too long (max 500 characters)");
+    }
+
+    // Verify user is a member of the chat
+    const chatDoc = await db.collection("chats").doc(chatId).get();
+    if (!chatDoc.exists) {
+      throw new Error("Chat not found");
+    }
+
+    const chatData = chatDoc.data();
+    if (!chatData?.members?.includes(uid)) {
+      logSecurityEvent("unauthorized_rag_query", {
+        userId: uid,
+        chatId,
+      }, "warn");
+      throw new Error("Unauthorized: You're not a member of this chat");
+    }
+
+    logger.info(`RAG query from user ${uid} in chat ${chatId}: "${query}"`);
+
+    try {
+      // Generate query embedding
+      const queryEmbedding = await generateQueryEmbedding(query);
+
+      // Search Pinecone for relevant context
+      const searchResults = await searchPinecone(
+        queryEmbedding,
+        chatId,
+        maxResults
+      );
+
+      // Generate contextual response
+      let response = "I don't have enough context to help with that query.";
+      const sources: Array<{
+        videoId: string;
+        timestamp: number;
+        confidence: number;
+        text: string;
+      }> = [];
+
+      if (searchResults.length > 0) {
+        response = await generateContextualResponse(query, searchResults);
+
+        // Format sources for response
+        sources.push(...searchResults.map(result => ({
+          videoId: result.metadata.videoId,
+          timestamp: result.metadata.startTime,
+          confidence: Math.round(result.score * 100) / 100,
+          text: result.metadata.text.substring(0, 150) + "...",
+        })));
+      }
+
+      const processingTimeMs = Date.now() - startTime;
+
+      logger.info(`RAG query completed in ${processingTimeMs}ms for user ${uid}`);
+
+      return {
+        response,
+        sources,
+        processingTimeMs,
+      };
+    } catch (error) {
+      logger.error(`Error in RAG query for user ${uid}:`, error);
+      throw new Error(`RAG query failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+);
+
+// ========================================
+// 8. SCHEDULED FUNCTION: Process RAG Backlog
+// ========================================
+
+export const processRAGBacklog = onSchedule({
+  schedule: "0 */2 * * *", // Run every 2 hours
+  timeZone: "UTC",
+  memory: "1GiB",
+  timeoutSeconds: 540, // 9 minutes
+}, async () => {
+  logger.info("Starting RAG backlog processing");
+
+  try {
+    // Find videos that haven't been processed for RAG yet
+    const unprocessedVideosQuery = db.collectionGroup("videos")
+      .where("ragProcessed", "!=", true)
+      .where("isExpired", "==", false)
+      .limit(10); // Process max 10 videos per run to avoid timeout
+
+    const unprocessedVideosSnapshot = await unprocessedVideosQuery.get();
+    const count = unprocessedVideosSnapshot.size;
+
+    logger.info(`Found ${count} unprocessed videos for RAG`);
+
+    if (count === 0) {
+      logger.info("No videos to process for RAG");
+      return;
+    }
+
+    const processPromises: Promise<void>[] = [];
+
+    for (const videoDoc of unprocessedVideosSnapshot.docs) {
+      const videoData = videoDoc.data();
+      const videoId = videoDoc.id;
+      const chatId = videoData.chatId;
+
+      // Skip if already processing or recently failed
+      if (videoData.ragProcessing === true) {
+        logger.info(`Skipping video ${videoId} - already processing`);
+        continue;
+      }
+
+      // Skip if failed recently (within last 6 hours)
+      if (videoData.ragErrorAt) {
+        const errorTime = videoData.ragErrorAt.toDate();
+        const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        if (errorTime > sixHoursAgo) {
+          logger.info(`Skipping video ${videoId} - failed recently`);
+          continue;
+        }
+      }
+
+      logger.info(`Processing video ${videoId} from chat ${chatId} for RAG`);
+
+      const processVideo = async () => {
+        try {
+          // Mark as processing
+          await videoDoc.ref.update({
+            ragProcessing: true,
+            ragStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // Construct video file path
+          const videoPath = `chats/${chatId}/videos/${videoId}.mp4`;
+
+          // Process video for RAG
+          await processVideoForRAG(videoPath, videoId, chatId);
+
+          logger.info(`Backlog RAG processing completed for video ${videoId}`);
+        } catch (error) {
+          logger.error(`Error in backlog RAG processing for video ${videoId}:`, error);
+          
+          // Update with error status
+          await videoDoc.ref.update({
+            ragProcessing: false,
+            ragProcessed: false,
+            ragError: error instanceof Error ? error.message : "Unknown error",
+            ragErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      };
+
+      processPromises.push(processVideo());
+    }
+
+    // Process all videos in parallel (with reasonable limits)
+    const results = await Promise.allSettled(processPromises);
+    
+    const successful = results.filter(r => r.status === "fulfilled").length;
+    const failed = results.filter(r => r.status === "rejected").length;
+
+    logger.info(`RAG backlog processing completed: ${successful} successful, ${failed} failed`);
+  } catch (error) {
+    logger.error("Error in processRAGBacklog:", error);
+    throw error;
+  }
+});

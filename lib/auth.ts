@@ -256,24 +256,66 @@ export class AuthService {
 
       let confirmationResult;
       
-      // Add basic validation before calling Firebase  
+      // Add comprehensive validation before calling Firebase  
       console.log('🔥 Firebase Phone Auth - Attempting to send SMS to:', formattedNumber);
       console.log('🔥 Firebase App Config Check:', {
         appId: auth().app.options.appId ? '***PRESENT***' : 'MISSING',
         apiKey: auth().app.options.apiKey ? '***PRESENT***' : 'MISSING',
         projectId: auth().app.options.projectId || 'MISSING',
+        bundleId: auth().app.options.bundleId || auth().app.options.iosAppId || 'MISSING',
       });
       
-      // Basic safety check for Firebase configuration (less strict to avoid assertion failures)
-      if (!auth().app.options.projectId || auth().app.options.projectId === 'your-firebase-project-id') {
+      // Enhanced validation to prevent assertion failures
+      const options = auth().app.options;
+      if (!options.projectId || options.projectId === 'your-firebase-project-id') {
         throw new Error('Firebase configuration is incomplete or contains placeholder values. Please check your environment setup.');
       }
       
-      // Race between Firebase verification and timeout
-      confirmationResult = await Promise.race([
-        auth().signInWithPhoneNumber(formattedNumber),
-        timeoutPromise
-      ]);
+      if (!options.appId || options.appId.includes('YOUR_GOOGLE_APP_ID')) {
+        throw new Error('Firebase App ID is missing or contains placeholder values. Please verify your GoogleService-Info.plist configuration.');
+      }
+      
+      // Check URL scheme configuration which is critical for reCAPTCHA
+      console.log('🔥 URL Scheme Check - Bundle ID for phone auth:', options.bundleId || options.iosAppId);
+      
+      // Wrap Firebase call with enhanced error handling to catch assertion failures
+      try {
+        console.log('🔥 Calling Firebase signInWithPhoneNumber...');
+        
+        // Race between Firebase verification and timeout with specific error handling
+        confirmationResult = await Promise.race([
+          auth().signInWithPhoneNumber(formattedNumber).catch((firebaseError) => {
+            console.error('🚨 Firebase signInWithPhoneNumber Error:', {
+              code: firebaseError.code,
+              message: firebaseError.message,
+              nativeErrorCode: firebaseError.nativeErrorCode,
+              nativeErrorMessage: firebaseError.nativeErrorMessage
+            });
+            
+            // Handle specific errors that might cause assertion failures
+            if (firebaseError.message?.includes('assertion') || firebaseError.message?.includes('Assertion')) {
+              throw new Error('Firebase Phone Auth is not properly configured. Please check that URL schemes are correctly set up in your app configuration.');
+            }
+            
+            if (firebaseError.code === 'auth/app-not-authorized') {
+              throw new Error('This app is not authorized for Firebase Phone Auth. Please check your Firebase project settings and SHA certificates.');
+            }
+            
+            if (firebaseError.code === 'auth/invalid-app-credential') {
+              throw new Error('Invalid Firebase app credentials. Please verify your GoogleService-Info.plist file is correct and up to date.');
+            }
+            
+            throw firebaseError;
+          }),
+          timeoutPromise
+        ]);
+        
+        console.log('🔥 Firebase signInWithPhoneNumber succeeded');
+        
+      } catch (wrapperError: any) {
+        console.error('🚨 Phone Auth Wrapper Error:', wrapperError);
+        throw wrapperError;
+      }
 
       console.log('🔥 Firebase Phone Auth - SMS sent successfully');
 

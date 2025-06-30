@@ -17,7 +17,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.letswaffle.app",
-      buildNumber: "7", // Manual versioning since autoIncrement doesn't work with app.config.js
+      buildNumber: "8", // Manual versioning since autoIncrement doesn't work with app.config.js
       // Use environment variable for EAS builds, fallback to local file for development
       googleServicesFile: process.env.GOOGLE_SERVICES_PLIST || "./GoogleService-Info.local.plist",
       entitlements: {
@@ -28,11 +28,26 @@ module.exports = {
         NSLocationWhenInUseUsageDescription: "Waffle does not access your location. This permission is required by system libraries.",
         NSCameraUsageDescription: "Waffle needs access to your camera to record and share video messages with your friends.",
         NSMicrophoneUsageDescription: "Waffle needs access to your microphone to record audio for your video messages.",
-        NSPhotoLibraryAddUsageDescription: "Waffle needs permission to save videos to your photo library so you can keep your favorite moments."
+        NSPhotoLibraryAddUsageDescription: "Waffle needs permission to save videos to your photo library so you can keep your favorite moments.",
+        // Firebase Phone Auth URL Schemes - these are critical for reCAPTCHA to work
+        CFBundleURLTypes: [
+          {
+            CFBundleURLName: "com.letswaffle.app",
+            CFBundleURLSchemes: ["waffle", "com.letswaffle.app"]
+          },
+          {
+            CFBundleURLName: "GoogleService-Info",
+            CFBundleURLSchemes: [
+              // This is the REVERSED_CLIENT_ID from your Firebase config
+              // Format: com.googleusercontent.apps.YOUR_CLIENT_ID
+              "com.googleusercontent.apps.1032594351648-hk57uo2rnqphsv36ajtgr1dac9vr5dcf"
+            ]
+          }
+        ]
       },
       appleTeamId: "GN9HKU8VQ5",
       associatedDomains: [
-        "applinks:letswaffle.app",
+        "applinks:letswaffle.app", 
         "applinks:www.letswaffle.app"
       ]
     },
@@ -79,7 +94,13 @@ module.exports = {
       router: {},
       eas: {
         projectId: "e57af568-7777-4b6a-925b-53e0ec4afc33"
-      }
+      },
+      // Firebase Phone Auth URL schemes for reCAPTCHA handling
+      firebaseAuthUrlSchemes: [
+        "waffle",
+        "com.letswaffle.app", 
+        "com.googleusercontent.apps.1032594351648-hk57uo2rnqphsv36ajtgr1dac9vr5dcf"
+      ]
     }
   }
 }; 
